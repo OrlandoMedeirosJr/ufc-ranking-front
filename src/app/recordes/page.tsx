@@ -1,19 +1,12 @@
-"use client";
+interface Recorde {
+  tipo: string;
+  lutador: string;
+  valor: number;
+}
 
-import { useEffect, useState } from "react";
-import axios from "axios";
-
-export default function RecordesPage() {
-  const [recordes, setRecordes] = useState<any[]>([]);
-
-  useEffect(() => {
-    axios
-      .get("http://localhost:3001/recordes")
-      .then((res) => {
-        if (Array.isArray(res.data)) setRecordes(res.data);
-      })
-      .catch(console.error);
-  }, []);
+export default async function RecordesPage() {
+  const res = await fetch("http://localhost:3000/recordes", { cache: "no-store" });
+  const recordes: Recorde[] = await res.json();
 
   return (
     <div>

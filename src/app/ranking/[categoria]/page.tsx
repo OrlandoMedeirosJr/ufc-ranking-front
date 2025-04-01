@@ -1,32 +1,30 @@
-"use client";
+import { notFound } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import axios from "axios";
+interface Lutador {
+  nome: string;
+}
 
-export default function RankingCategoriaPage() {
-  const { categoria } = useParams();
-  const [ranking, setRanking] = useState<any[]>([]);
+interface RankingItem {
+  lutadorId: number;
+  posicao: number;
+  pontos: number;
+  lutador: Lutador | null;
+}
 
-  useEffect(() => {
-    if (!categoria) return;
-    axios
-      .get(`http://localhost:3001/ranking/${decodeURIComponent(categoria as string)}`)
-      .then((res) => {
-        if (Array.isArray(res.data)) setRanking(res.data);
-      })
-      .catch(console.error);
-  }, [categoria]);
+export default async function RankingPage({ params }: { params: { categoria: string } }) {
+  const categoria = decodeURIComponent(params.categoria);
+  const res = await fetch(`http://localhost:3000/ranking/${categoria}`, { cache: "no-store" });
+
+  if (!res.ok) return notFound();
+
+  const data: RankingItem[] = await res.json();
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Ranking: {decodeURIComponent(categoria as string)}</h2>
+      <h2 className="text-2xl font-bold mb-4">Ranking: {categoria}</h2>
       <ul className="space-y-2">
-        {ranking.map((item) => (
-          <li
-            key={item.lutadorId}
-            className={`p-3 rounded border shadow-sm bg-white`}
-          >
+        {data.map((item) => (
+          <li key={item.lutadorId} className="p-3 rounded border shadow-sm bg-white">
             <strong>#{item.posicao}</strong> {item.lutador?.nome} — {item.pontos} pts
           </li>
         ))}
