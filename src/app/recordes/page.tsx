@@ -5,7 +5,7 @@ interface Recorde {
 }
 
 export default async function RecordesPage() {
-  const res = await fetch("http://localhost:3000/recordes", { cache: "no-store" });
+  const res = await fetch("http://localhost:3333/recordes", { cache: "no-store" });
   const recordes: Recorde[] = await res.json();
 
   return (
