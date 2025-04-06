@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { buildApiUrl } from "@/config/api";
+import { apiGet, buildApiUrl } from "@/config/api";
 
 interface Lutador {
   id: number;
   nome: string;
   apelido: string | null;
   pais: string;
-  categoriaAtual: string;
   sexo: string;
   altura?: number;
+  categorias?: string[]; // Categorias em que o lutador já lutou
 }
 
 export default async function LutadoresPage({
@@ -22,24 +22,21 @@ export default async function LutadoresPage({
   const sexo = typeof searchParams.sexo === 'string' ? searchParams.sexo : undefined;
   
   // Construir URL com parâmetros de busca
-  let apiUrl = buildApiUrl('lutadores');
+  let apiPath = 'lutadores';
   
   if (nome || pais || sexo) {
     const params = new URLSearchParams();
     if (nome) params.append('nome', nome);
     if (pais) params.append('pais', pais);
     if (sexo) params.append('sexo', sexo);
-    apiUrl += `?${params.toString()}`;
+    apiPath += `?${params.toString()}`;
   }
   
   let lutadores: Lutador[] = [];
   let erro: string | null = null;
   
   try {
-    const res = await fetch(apiUrl, {
-      cache: 'no-store',
-      next: { revalidate: 0 }
-    });
+    const res = await apiGet(apiPath);
     
     if (!res.ok) {
       throw new Error(`Erro ao carregar lutadores: ${res.status}`);
@@ -49,6 +46,20 @@ export default async function LutadoresPage({
     
     if (!Array.isArray(lutadores)) {
       throw new Error('Resposta da API não retornou um array válido');
+    }
+
+    // Para cada lutador, buscar as categorias em que já lutou
+    for (const lutador of lutadores) {
+      try {
+        const resCategoria = await apiGet(`lutadores/${lutador.id}/categorias`);
+        
+        if (resCategoria.ok) {
+          const data = await resCategoria.json();
+          lutador.categorias = data.categorias;
+        }
+      } catch (e) {
+        console.error(`Erro ao buscar categorias do lutador ${lutador.id}:`, e);
+      }
     }
   } catch (error) {
     console.error("Erro ao buscar lutadores:", error);
@@ -138,9 +149,22 @@ export default async function LutadoresPage({
               </h2>
               <div className="flex flex-wrap mt-2 gap-2">
                 <span className="px-2 py-1 bg-gray-100 text-sm rounded-full">{lutador.pais}</span>
-                <span className="px-2 py-1 bg-blue-100 text-sm rounded-full">{lutador.categoriaAtual}</span>
                 <span className="px-2 py-1 bg-purple-100 text-sm rounded-full">{lutador.sexo}</span>
               </div>
+              
+              {/* Exibir categorias em que o lutador já lutou */}
+              {lutador.categorias && lutador.categorias.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {lutador.categorias.map((categoria, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-blue-100 text-sm rounded-full">{categoria}</span>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <span className="px-2 py-1 bg-gray-200 text-sm rounded-full text-gray-500">Sem lutas em categorias</span>
+                </div>
+              )}
+              
               <div className="mt-4 flex justify-end">
                 <Link
                   href={`/lutadores/${lutador.id}`}

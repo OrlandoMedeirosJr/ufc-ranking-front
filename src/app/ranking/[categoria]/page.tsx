@@ -20,46 +20,54 @@ interface RankingItem {
   lutador: Lutador | null;
 }
 
-export default async function RankingPage({ params }: { params: { categoria: string } }) {
-  // Aguardamos a resolução dos parâmetros para evitar o aviso
-  const parametros = await Promise.resolve(params);
-  const categoria = decodeURIComponent(parametros.categoria);
+export default async function RankingPage({ 
+  params 
+}: { 
+  params: { categoria: string } 
+}) {
+  const categoria = decodeURIComponent(params.categoria);
   
-  console.log(`Tentando buscar ranking para categoria: ${categoria}`);
+  // Mapeamento de slugs para nomes de categorias no formato que o backend espera
+  const categoriasMap: Record<string, string> = {
+    "peso-por-peso": "Peso por Peso",
+    "peso-mosca": "Peso Mosca",
+    "peso-galo": "Peso Galo",
+    "peso-pena": "Peso Pena",
+    "peso-leve": "Peso Leve",
+    "peso-meio-medio": "Peso Meio-Médio",
+    "peso-medio": "Peso Médio",
+    "peso-meio-pesado": "Peso Meio-Pesado",
+    "peso-pesado": "Peso Pesado",
+    "peso-palha-feminino": "Peso Palha Feminino",
+    "peso-mosca-feminino": "Peso Mosca Feminino",
+    "peso-galo-feminino": "Peso Galo Feminino",
+    "peso-pena-feminino": "Peso Pena Feminino"
+  };
+  
+  // Obtém o nome da categoria formatado
+  const categoriaFormatada = categoriasMap[categoria] || categoria;
   
   try {
-    // Mapeamento de slugs para nomes de categorias no formato que o backend espera
-    const categoriasMap: Record<string, string> = {
-      "peso-por-peso": "Peso por Peso",
-      "peso-mosca": "Peso Mosca",
-      "peso-galo": "Peso Galo",
-      "peso-pena": "Peso Pena",
-      "peso-leve": "Peso Leve",
-      "peso-meio-medio": "Peso Meio-Médio",
-      "peso-medio": "Peso Médio",
-      "peso-meio-pesado": "Peso Meio-Pesado",
-      "peso-pesado": "Peso Pesado"
-    };
-    
-    // Obtém o nome da categoria formatado
-    const categoriaFormatada = categoriasMap[categoria] || categoria;
-    
-    // Construir a URL da API usando a função de utilidade
+    // Usar fetch diretamente para debugging
     const apiUrl = buildApiUrl(`ranking/${categoriaFormatada}`);
-    console.log(`URL da requisição: ${apiUrl}`);
+    console.log('Fazendo requisição para:', apiUrl);
     
-    const res = await fetch(apiUrl, { 
-      cache: "no-store",
-      next: { revalidate: 0 } 
+    const res = await fetch(apiUrl, {
+      cache: 'no-store',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      next: { revalidate: 0 }
     });
 
     if (!res.ok) {
-      console.error(`Erro na resposta da API: ${res.status} ${res.statusText}`);
+      console.error('Erro na resposta:', res.status, res.statusText);
       return notFound();
     }
 
     const data: RankingItem[] = await res.json();
-    console.log(`Dados recebidos: ${data.length} itens`);
+    console.log('Dados recebidos:', data.length, 'itens');
 
     // Formatar título da categoria para exibição
     const categoriaTitulo = categoriasMap[categoria] || categoria.split('-').map(word => 
@@ -80,6 +88,7 @@ export default async function RankingPage({ params }: { params: { categoria: str
       <div>
         <h2 className="text-2xl font-bold mb-4">Ranking: {categoria}</h2>
         <p className="text-red-500">Erro ao carregar o ranking. Tente novamente mais tarde.</p>
+        <p className="text-red-500">Erro: {error instanceof Error ? error.message : String(error)}</p>
       </div>
     );
   }

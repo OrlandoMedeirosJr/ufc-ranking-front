@@ -3,7 +3,7 @@
  */
 
 // URL base da API do backend
-export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3333';
+export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3334';
 
 // Função auxiliar para construir URLs completas
 export const buildApiUrl = (path: string): string => {
@@ -13,7 +13,7 @@ export const buildApiUrl = (path: string): string => {
     return `${API_URL}/${cleanPath}`;
   } catch (error) {
     console.error('Erro ao construir URL da API:', error);
-    return `http://localhost:3333/${path}`;
+    return `http://localhost:3334/${path}`;
   }
 };
 
@@ -23,6 +23,9 @@ export const defaultFetchOptions = {
     'Content-Type': 'application/json',
   },
   cache: 'no-store' as RequestCache,
+  mode: 'cors' as RequestMode,
+  credentials: 'same-origin' as RequestCredentials,
+  next: { revalidate: 0 }
 };
 
 // Função auxiliar para requisições GET
