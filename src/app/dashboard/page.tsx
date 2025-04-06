@@ -45,142 +45,166 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // Obter estatísticas gerais
+        // Obter estatísticas centralizadas do endpoint específico do dashboard
+        const dashboardStatsRes = await fetch(buildApiUrl('dashboard/estatisticas'), { cache: 'no-store' });
+        
+        // Obter eventos e recordes em paralelo
         const [
-          lutadoresRes,
           eventosRes,
           recordesRes
         ] = await Promise.all([
-          fetch(buildApiUrl('lutadores'), { cache: 'no-store' }),
           fetch(buildApiUrl('eventos?finalizado=true'), { cache: 'no-store' }),
           fetch(buildApiUrl('recordes'), { cache: 'no-store' })
         ]);
 
-        if (!lutadoresRes.ok || !eventosRes.ok || !recordesRes.ok) {
+        if (!dashboardStatsRes.ok || !eventosRes.ok || !recordesRes.ok) {
           throw new Error('Erro ao carregar dados do dashboard');
         }
 
-        const lutadores = await lutadoresRes.json();
+        // Obter estatísticas do dashboard do novo endpoint
+        const dashboardStats = await dashboardStatsRes.json();
+        console.log('Estatísticas obtidas do endpoint centralizado:', dashboardStats);
+        
         const eventos = await eventosRes.json();
         const recordesData = await recordesRes.json();
 
-        // Contagem de lutas
-        let totalLutas = 0;
-
-        try {
-          // Obter contagem direta de lutas da API
-          const lutasCountRes = await fetch(buildApiUrl('lutas/count'), { cache: 'no-store' });
+        // Se temos dados do endpoint centralizado, usamos eles
+        if (dashboardStats) {
+          setEstatisticas({
+            totalLutadores: dashboardStats.totalLutadores || 0,
+            totalEventos: dashboardStats.totalEventos || 0,
+            totalLutas: dashboardStats.totalLutas || 0,
+            totalCategorias: dashboardStats.totalCategorias || 0,
+          });
           
-          if (lutasCountRes.ok) {
-            const { count } = await lutasCountRes.json();
-            console.log(`Contagem de lutas retornada pela API: ${count}`);
-            totalLutas = count;
-          } else {
-            console.log('API de contagem não retornou dados. Calculando manualmente...');
+          console.log('Estatísticas do dashboard atualizadas com dados centralizados');
+        } else {
+          // Caso contrário, usamos o método antigo (fallback)
+          // Contagem de lutas
+          let totalLutas = 0;
+
+          try {
+            // Obter contagem direta de lutas da API
+            const lutasCountRes = await fetch(buildApiUrl('lutas/count'), { cache: 'no-store' });
             
-            // Se a API de contagem não estiver disponível, vamos contar das lutas dos eventos
-            for (const evento of eventos) {
-              if (evento._count?.lutas) {
-                totalLutas += evento._count.lutas;
+            if (lutasCountRes.ok) {
+              const { count } = await lutasCountRes.json();
+              console.log(`Contagem de lutas retornada pela API: ${count}`);
+              totalLutas = count;
+            } else {
+              console.log('API de contagem não retornou dados. Calculando manualmente...');
+              
+              // Se a API de contagem não estiver disponível, vamos contar das lutas dos eventos
+              for (const evento of eventos) {
+                if (evento._count?.lutas) {
+                  totalLutas += evento._count.lutas;
+                }
+              }
+              
+              // Se ainda estiver zerado, tentamos buscar todas as lutas e contar
+              if (totalLutas === 0) {
+                console.log('Tentando obter todas as lutas para contagem manual');
+                try {
+                  const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
+                  if (lutasRes.ok) {
+                    const todasLutas = await lutasRes.json();
+                    totalLutas = todasLutas.length;
+                    console.log(`Contagem manual de lutas: ${totalLutas}`);
+                  }
+                } catch (lutasError) {
+                  console.error('Erro ao buscar todas as lutas:', lutasError);
+                }
               }
             }
+          } catch (error) {
+            console.error('Erro ao contar lutas:', error);
+          }
+
+          console.log(`Total final de lutas: ${totalLutas}`);
+
+          // Conjunto de categorias ativas no ranking
+          const categorias = new Set<string>();
+          for (const lutador of lutadores) {
+            if (lutador.categoriaAtual) {
+              categorias.add(lutador.categoriaAtual);
+            }
+          }
+
+          // Contagem de lutas por categoria
+          const lutasPorCategoriaTemp: Record<string, number> = {};
+          
+          try {
+            // Primeiro tentamos obter a contagem agregada do backend
+            const categoriaStatsRes = await fetch(buildApiUrl('lutas/categorias/contagem'), { cache: 'no-store' });
             
-            // Se ainda estiver zerado, tentamos buscar todas as lutas e contar
-            if (totalLutas === 0) {
-              console.log('Tentando obter todas as lutas para contagem manual');
+            if (categoriaStatsRes.ok) {
+              const categoriaStats = await categoriaStatsRes.json();
+              console.log('Dados de categorias recebidos da API:', categoriaStats);
+              
+              // Filtrar para incluir apenas categorias com lutas
+              const categoriasFiltradas = categoriaStats.filter(item => item.count > 0);
+              console.log('Categorias filtradas (apenas com lutas):', categoriasFiltradas);
+              
+              // Se o backend retornar os dados, usamos eles
+              setLutasPorCategoria(categoriasFiltradas);
+            } else {
+              console.log('API de contagem de categorias não retornou dados. Obtendo diretamente das lutas.');
+              
+              // Se não conseguiu da API específica, vamos buscar todas as lutas e contar manualmente
               try {
                 const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
+                
                 if (lutasRes.ok) {
                   const todasLutas = await lutasRes.json();
-                  totalLutas = todasLutas.length;
-                  console.log(`Contagem manual de lutas: ${totalLutas}`);
+                  console.log(`Obtidas ${todasLutas.length} lutas para contar categorias`);
+                  
+                  // Contar manualmente por categoria
+                  const contagemCategorias: Record<string, number> = {};
+                  
+                  for (const luta of todasLutas) {
+                    const categoria = luta.categoria || 'Categoria não especificada';
+                    contagemCategorias[categoria] = (contagemCategorias[categoria] || 0) + 1;
+                  }
+                  
+                  const chartData = Object.entries(contagemCategorias)
+                    .filter(([_, count]) => count > 0) // Filtrar apenas categorias com lutas
+                    .map(([categoria, count]) => ({
+                      categoria,
+                      count
+                    }));
+                  
+                  console.log('Contagem manual por categoria:', chartData);
+                  setLutasPorCategoria(chartData);
+                } else {
+                  // Se não conseguir dados reais, não exibe nada em vez de mostrar dados fictícios
+                  console.log('Não foi possível obter dados de lutas. Exibindo gráfico vazio.');
+                  setLutasPorCategoria([]);
                 }
-              } catch (lutasError) {
-                console.error('Erro ao buscar todas as lutas:', lutasError);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Erro ao contar lutas:', error);
-        }
-
-        console.log(`Total final de lutas: ${totalLutas}`);
-
-        // Conjunto de categorias ativas no ranking
-        const categorias = new Set<string>();
-        for (const lutador of lutadores) {
-          if (lutador.categoriaAtual) {
-            categorias.add(lutador.categoriaAtual);
-          }
-        }
-
-        // Contagem de lutas por categoria
-        const lutasPorCategoriaTemp: Record<string, number> = {};
-        
-        try {
-          // Primeiro tentamos obter a contagem agregada do backend
-          const categoriaStatsRes = await fetch(buildApiUrl('lutas/categorias/contagem'), { cache: 'no-store' });
-          
-          if (categoriaStatsRes.ok) {
-            const categoriaStats = await categoriaStatsRes.json();
-            console.log('Dados de categorias recebidos da API:', categoriaStats);
-            
-            // Filtrar para incluir apenas categorias com lutas
-            const categoriasFiltradas = categoriaStats.filter(item => item.count > 0);
-            console.log('Categorias filtradas (apenas com lutas):', categoriasFiltradas);
-            
-            // Se o backend retornar os dados, usamos eles
-            setLutasPorCategoria(categoriasFiltradas);
-          } else {
-            console.log('API de contagem de categorias não retornou dados. Obtendo diretamente das lutas.');
-            
-            // Se não conseguiu da API específica, vamos buscar todas as lutas e contar manualmente
-            try {
-              const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
-              
-              if (lutasRes.ok) {
-                const todasLutas = await lutasRes.json();
-                console.log(`Obtidas ${todasLutas.length} lutas para contar categorias`);
-                
-                // Contar manualmente por categoria
-                const contagemCategorias: Record<string, number> = {};
-                
-                for (const luta of todasLutas) {
-                  const categoria = luta.categoria || 'Categoria não especificada';
-                  contagemCategorias[categoria] = (contagemCategorias[categoria] || 0) + 1;
-                }
-                
-                const chartData = Object.entries(contagemCategorias)
-                  .filter(([_, count]) => count > 0) // Filtrar apenas categorias com lutas
-                  .map(([categoria, count]) => ({
-                    categoria,
-                    count
-                  }));
-                
-                console.log('Contagem manual por categoria:', chartData);
-                setLutasPorCategoria(chartData);
-              } else {
-                // Se não conseguir dados reais, não exibe nada em vez de mostrar dados fictícios
-                console.log('Não foi possível obter dados de lutas. Exibindo gráfico vazio.');
+              } catch (error) {
+                console.error('Erro ao obter e contar lutas:', error);
                 setLutasPorCategoria([]);
               }
-            } catch (error) {
-              console.error('Erro ao obter e contar lutas:', error);
-              setLutasPorCategoria([]);
             }
+          } catch (error) {
+            console.error('Erro ao obter contagem por categoria:', error);
+            setLutasPorCategoria([]);
           }
-        } catch (error) {
-          console.error('Erro ao obter contagem por categoria:', error);
-          setLutasPorCategoria([]);
-        }
 
-        // Atualizar estatísticas gerais
-        setEstatisticas({
-          totalLutadores: lutadores.length,
-          totalEventos: eventos.length,
-          totalLutas,
-          totalCategorias: categorias.size,
-        });
+          // Atualizar estatísticas gerais com a contagem correta de lutas
+          setEstatisticas({
+            totalLutadores: lutadores.length,
+            totalEventos: eventos.length,
+            totalLutas: totalLutas || 0, // Garantir que nunca seja undefined
+            totalCategorias: categorias.size,
+          });
+
+          console.log('Estatísticas finais atualizadas no dashboard:', {
+            totalLutadores: lutadores.length,
+            totalEventos: eventos.length,
+            totalLutas: totalLutas || 0,
+            totalCategorias: categorias.size,
+          });
+        }
 
         // Atualizar últimos eventos (limitando a 3)
         setUltimosEventos(eventos.slice(0, 3));
