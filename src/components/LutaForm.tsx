@@ -540,74 +540,91 @@ const LutaForm: React.FC<LutaFormProps> = ({
           {formData.resultado && formData.resultado !== '' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                {/* Tipo de vitória */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium" htmlFor="tipo">
-                    Método
-                  </label>
-                  <select
-                    id="tipo"
-                    name="tipo"
-                    value={formData.tipo}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded text-sm"
-                  >
-                    <option value="">Selecione o Tipo</option>
-                    {tiposVitoria.map((tipo) => (
-                      <option key={tipo} value={tipo}>
-                        {tipo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Round */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium" htmlFor="round">
-                    Round
-                  </label>
-                  <select
-                    id="round"
-                    name="round"
-                    value={formData.round}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded text-sm"
-                  >
-                    <option value="">Selecione o Round</option>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        Round {i + 1}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Bônus */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium">
-                    Bônus
-                  </label>
-                  <div className="space-y-2 mt-1">
-                    {opcoesBonus.filter(bonus => bonus !== 'Nenhum').map((opcao) => (
-                      <label key={opcao} className="flex items-center text-sm">
-                        <input
-                          type="checkbox"
-                          name={`bonus-${opcao}`}
-                          value={opcao}
-                          checked={Array.isArray(formData.bonus) && formData.bonus.includes(opcao)}
-                          onChange={handleBonusChange}
-                          className="mr-2"
-                        />
-                        {opcao}
+                {/* Só mostra tipo de vitória e round para vitórias (V1 ou V2) */}
+                {(formData.resultado === 'V1' || formData.resultado === 'V2') && (
+                  <>
+                    {/* Tipo de vitória */}
+                    <div>
+                      <label className="block mb-1 text-sm font-medium" htmlFor="tipo">
+                        Método
                       </label>
-                    ))}
-                    {(!Array.isArray(formData.bonus) || formData.bonus.length === 0) && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Nenhum bônus selecionado
-                      </div>
-                    )}
+                      <select
+                        id="tipo"
+                        name="tipo"
+                        value={formData.tipo}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded text-sm"
+                      >
+                        <option value="">Selecione o Tipo</option>
+                        {tiposVitoria.map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {tipo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Round */}
+                    <div>
+                      <label className="block mb-1 text-sm font-medium" htmlFor="round">
+                        Round
+                      </label>
+                      <select
+                        id="round"
+                        name="round"
+                        value={formData.round}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded text-sm"
+                      >
+                        <option value="">Selecione o Round</option>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>
+                            Round {i + 1}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Bônus - apenas se não for No Contest */}
+                {formData.resultado !== 'NC' && (
+                  <div>
+                    <label className="block mb-1 text-sm font-medium">
+                      Bônus
+                    </label>
+                    <div className="space-y-2 mt-1">
+                      {/* Para método "Decisão", mostrar apenas "Luta da Noite" */}
+                      {opcoesBonus
+                        .filter(bonus => bonus !== 'Nenhum')
+                        // Se o método contém "Decisão", mostrar apenas "Luta da Noite"
+                        .filter(bonus => {
+                          if (formData.tipo && formData.tipo.includes('Decisão')) {
+                            return bonus === 'Luta da Noite';
+                          }
+                          return true;
+                        })
+                        .map((opcao) => (
+                          <label key={opcao} className="flex items-center text-sm">
+                            <input
+                              type="checkbox"
+                              name={`bonus-${opcao}`}
+                              value={opcao}
+                              checked={Array.isArray(formData.bonus) && formData.bonus.includes(opcao)}
+                              onChange={handleBonusChange}
+                              className="mr-2"
+                            />
+                            {opcao}
+                          </label>
+                        ))}
+                      {(!Array.isArray(formData.bonus) || formData.bonus.length === 0) && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Nenhum bônus selecionado
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Luta de título */}
@@ -772,55 +789,70 @@ const LutaForm: React.FC<LutaFormProps> = ({
       {/* Só mostra os detalhes do resultado se houver um resultado selecionado */}
           {dadosLuta.resultado && dadosLuta.resultado !== '' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {/* Tipo de vitória */}
-          <div>
-            <label className="block mb-1 text-sm font-medium" htmlFor={`tipo-${index}`}>
-              Método
-            </label>
-            <select
-              id={`tipo-${index}`}
-              name="tipo"
+          {/* Só mostra tipo de vitória e round para vitórias (V1 ou V2) */}
+          {(dadosLuta.resultado === 'V1' || dadosLuta.resultado === 'V2') && (
+            <>
+              {/* Tipo de vitória */}
+              <div>
+                <label className="block mb-1 text-sm font-medium" htmlFor={`tipo-${index}`}>
+                  Método
+                </label>
+                <select
+                  id={`tipo-${index}`}
+                  name="tipo"
                   value={dadosLuta.tipo}
                   onChange={(e) => onChange && onChange(index, e)}
-              className="w-full p-2 border rounded text-sm"
-            >
-              <option value="">Selecione o Tipo</option>
-              {tiposVitoria.map((tipo) => (
-                <option key={tipo} value={tipo}>
-                  {tipo}
-                </option>
-              ))}
-            </select>
-          </div>
+                  className="w-full p-2 border rounded text-sm"
+                >
+                  <option value="">Selecione o Tipo</option>
+                  {tiposVitoria.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Round */}
-          <div>
-            <label className="block mb-1 text-sm font-medium" htmlFor={`round-${index}`}>
-              Round
-            </label>
-            <select
-              id={`round-${index}`}
-              name="round"
+              {/* Round */}
+              <div>
+                <label className="block mb-1 text-sm font-medium" htmlFor={`round-${index}`}>
+                  Round
+                </label>
+                <select
+                  id={`round-${index}`}
+                  name="round"
                   value={dadosLuta.round}
                   onChange={(e) => onChange && onChange(index, e)}
-              className="w-full p-2 border rounded text-sm"
-            >
-              <option value="">Selecione o Round</option>
-              {Array.from({ length: 5 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  Round {i + 1}
-                </option>
-              ))}
-            </select>
-          </div>
+                  className="w-full p-2 border rounded text-sm"
+                >
+                  <option value="">Selecione o Round</option>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      Round {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
-          {/* Bônus */}
-          <div>
-                <label className="block mb-1 text-sm font-medium">
-              Bônus
-            </label>
-                <div className="space-y-2 mt-1">
-                  {opcoesBonus.filter(bonus => bonus !== 'Nenhum').map((opcao) => (
+          {/* Bônus - apenas se não for No Contest */}
+          {dadosLuta.resultado !== 'NC' && (
+            <div>
+              <label className="block mb-1 text-sm font-medium">
+                Bônus
+              </label>
+              <div className="space-y-2 mt-1">
+                {opcoesBonus
+                  .filter(bonus => bonus !== 'Nenhum')
+                  // Se o método contém "Decisão", mostrar apenas "Luta da Noite"
+                  .filter(bonus => {
+                    if (dadosLuta.tipo && dadosLuta.tipo.includes('Decisão')) {
+                      return bonus === 'Luta da Noite';
+                    }
+                    return true;
+                  })
+                  .map((opcao) => (
                     <label key={opcao} className="flex items-center text-sm">
                       <input
                         type="checkbox"
@@ -830,28 +862,30 @@ const LutaForm: React.FC<LutaFormProps> = ({
                         onChange={handleBonusChange}
                         className="mr-2"
                       />
-                  {opcao}
+                    {opcao}
                     </label>
                   ))}
-                  {(!Array.isArray(dadosLuta.bonus) || dadosLuta.bonus.length === 0) && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Nenhum bônus selecionado
-                    </div>
-                  )}
-                </div>
-          </div>
+                {(!Array.isArray(dadosLuta.bonus) || dadosLuta.bonus.length === 0) && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Nenhum bônus selecionado
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Luta de título */}
-          {dadosLuta.resultado && dadosLuta.resultado !== '' && (
+      {/* Luta de título - apenas se for vitória (V1 ou V2) */}
+      {dadosLuta.resultado && 
+       (dadosLuta.resultado === 'V1' || dadosLuta.resultado === 'V2') && (
         <div className="mb-4">
           <label className="flex items-center">
             <input
               type="checkbox"
               name="titulo"
-                  checked={dadosLuta.titulo}
-                  onChange={(e) => onChange && onChange(index, e)}
+              checked={dadosLuta.titulo}
+              onChange={(e) => onChange && onChange(index, e)}
               className="mr-2"
             />
             <span className="text-sm font-medium">Disputa de Título</span>
@@ -860,7 +894,7 @@ const LutaForm: React.FC<LutaFormProps> = ({
             Marque essa opção se essa luta for uma disputa de cinturão
           </p>
         </div>
-          )}
+      )}
         </>
       )}
     </div>
