@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogContent, AlertDialogCancel, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { FlagIcon } from '@heroicons/react/24/outline';
-import { apiPut } from '@/config/api';
+import { apiPut, buildApiUrl } from '@/config/api';
 
 interface BotaoFinalizarProps {
-  eventoId: string;
-  finalizado: boolean;
+  eventoId: number;
+  finalizado?: boolean;
 }
 
-export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarProps) {
+export default function BotaoFinalizar({ eventoId, finalizado = false }: BotaoFinalizarProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -20,8 +20,11 @@ export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarP
   const handleFinalizar = async () => {
     setLoading(true);
     try {
-      const response = await apiPut(`eventos/${eventoId}/finalizar`, {
-        finalizado: !finalizado
+      const response = await fetch(buildApiUrl(`eventos/${eventoId}/finalizar`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
       
       if (response.ok) {
@@ -29,12 +32,12 @@ export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarP
         setOpen(false);
         router.refresh();
       } else {
-        console.error('Erro ao alterar status do evento:', await response.text());
-        alert('Ocorreu um erro ao alterar o status do evento. Por favor, tente novamente.');
+        console.error('Erro ao finalizar evento:', await response.text());
+        alert('Ocorreu um erro ao finalizar o evento. Por favor, tente novamente.');
       }
     } catch (error) {
-      console.error('Erro ao alterar status do evento:', error);
-      alert('Ocorreu um erro ao alterar o status do evento. Por favor, tente novamente.');
+      console.error('Erro ao finalizar evento:', error);
+      alert('Ocorreu um erro ao finalizar o evento. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -44,10 +47,10 @@ export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarP
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button 
-          variant={finalizado ? "default" : "secondary"} 
+          variant={finalizado ? "outline" : "secondary"} 
           className="h-10 flex items-center space-x-2"
         >
-          <FlagIcon className="h-5 w-5" />
+          <FlagIcon className="h-4 w-4" />
           <span>{finalizado ? 'Reabrir Evento' : 'Finalizar Evento'}</span>
         </Button>
       </AlertDialogTrigger>
@@ -62,7 +65,7 @@ export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarP
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <Button 
-            variant={finalizado ? "default" : "secondary"} 
+            variant={finalizado ? "outline" : "secondary"} 
             onClick={handleFinalizar} 
             disabled={loading}
           >

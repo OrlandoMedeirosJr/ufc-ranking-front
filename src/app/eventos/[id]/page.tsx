@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { notFound } from 'next/navigation';
 import React from 'react';
 import BotaoExcluir from './components/BotaoExcluir';
 import BotaoFinalizar from './components/BotaoFinalizar';
@@ -69,57 +68,54 @@ interface PageProps {
   params: { id: string };
 }
 
-export default async function EventoDetalhesPage({ params }: PageProps) {
+export default function EventoDetalhesPage({ params }: PageProps) {
   const eventoId = params.id;
   
-  // Função para buscar dados do evento na API
-  async function getEvento() {
-    try {
-      const res = await fetch(buildApiUrl(`eventos/${eventoId}`), { 
-        cache: 'no-store',
-        next: { tags: ['evento', `evento-${eventoId}`] }
-      });
-      
-      if (!res.ok) {
-        throw new Error(`Erro ao buscar evento: ${res.status}`);
-      }
-      
-      return res.json();
-    } catch (error) {
-      console.error('Erro ao buscar evento:', error);
-      throw error;
-    }
-  }
-
-  // Função para buscar lutas do evento na API
-  async function getLutas() {
-    try {
-      const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas`), { 
-        cache: 'no-store',
-        next: { tags: ['lutas', `lutas-evento-${eventoId}`] }
-      });
-      
-      if (!res.ok) {
-        throw new Error(`Erro ao buscar lutas: ${res.status}`);
-      }
-      
-      return res.json();
-    } catch (error) {
-      console.error('Erro ao buscar lutas:', error);
-      return { lutas: [] };
-    }
-  }
-
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutas, setLutas] = useState<Luta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
+    // Função para buscar dados do evento na API
+    async function getEvento() {
+      try {
+        const res = await fetch(buildApiUrl(`eventos/${eventoId}`), { 
+          cache: 'no-store'
+        });
+        
+        if (!res.ok) {
+          throw new Error(`Erro ao buscar evento: ${res.status}`);
+        }
+        
+        return res.json();
+      } catch (error) {
+        console.error('Erro ao buscar evento:', error);
+        throw error;
+      }
+    }
+
+    // Função para buscar lutas do evento na API
+    async function getLutas() {
+      try {
+        const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas`), { 
+          cache: 'no-store'
+        });
+        
+        if (!res.ok) {
+          throw new Error(`Erro ao buscar lutas: ${res.status}`);
+        }
+        
+        return res.json();
+      } catch (error) {
+        console.error('Erro ao buscar lutas:', error);
+        return { lutas: [] };
+      }
+    }
+
     const carregarEvento = async () => {
       try {
-        setCarregando(true);
+        setLoading(true);
         setError(null);
         
         const data = await getEvento();
@@ -138,7 +134,7 @@ export default async function EventoDetalhesPage({ params }: PageProps) {
             console.log('Lutas carregadas separadamente:', lutasData);
             setLutas(lutasData.lutas);
           } catch (lutasError) {
-            const lutasResponse = await fetch(`${API_URL}/lutas?eventoId=${id}`);
+            const lutasResponse = await fetch(buildApiUrl(`lutas?eventoId=${eventoId}`));
             if (lutasResponse.ok) {
               const lutasData = await lutasResponse.json();
               console.log('Lutas carregadas separadamente:', lutasData);
@@ -154,14 +150,12 @@ export default async function EventoDetalhesPage({ params }: PageProps) {
         console.error('Erro ao carregar dados:', error);
         setError(`Falha ao carregar dados: ${error.message}`);
       } finally {
-        setCarregando(false);
+        setLoading(false);
       }
     };
     
-    if (id) {
-      carregarEvento();
-    }
-  }, [id]);
+    carregarEvento();
+  }, [eventoId]);
 
   const formatarData = (dataString: string) => {
     try {
@@ -199,7 +193,7 @@ export default async function EventoDetalhesPage({ params }: PageProps) {
     return textoResultado;
   };
 
-  if (carregando) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -248,153 +242,148 @@ export default async function EventoDetalhesPage({ params }: PageProps) {
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
-        <Link href="/eventos" className="text-blue-600 hover:underline">
-          ← Voltar para lista de eventos
-        </Link>
-        
-        <Link href={`/eventos/${id}/editar`} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-          Editar Evento
-        </Link>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">{evento.nome}</h1>
-        
-        <div className="flex flex-col sm:flex-row sm:gap-6 text-gray-600">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold mb-2">{evento.nome}</h1>
           {evento.data && (
-            <div className="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-              </svg>
-              <span>{formatarData(evento.data)}</span>
-            </div>
+            <p className="text-gray-600 mb-1">
+              {formatarData(evento.data)}
+            </p>
+          )}
+          {evento.local && evento.pais && (
+            <p className="text-gray-600">
+              {evento.local}, {evento.pais}
+            </p>
+          )}
+        </div>
+        
+        <div className="mt-4 md:mt-0 space-x-2 flex flex-wrap gap-2">
+          {!evento.finalizado && (
+            <BotaoFinalizar eventoId={evento.id} finalizado={evento.finalizado} />
           )}
           
-          {evento.local && (
-            <div className="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-              </svg>
-              <span>{evento.local}{evento.pais ? `, ${evento.pais}` : ''}</span>
-            </div>
-          )}
+          <BotaoExcluir eventoId={evento.id} />
           
-          <div className="flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Status: {evento.finalizado ? 'Finalizado' : 'Agendado'}</span>
-          </div>
+          <Link href={`/eventos/${evento.id}/editar`} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+            Editar Evento
+          </Link>
         </div>
       </div>
-
+      
       {evento.finalizado && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-          <h2 className="text-xl font-bold mb-3">Estatísticas do Evento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {evento.publicoTotal ? (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Público Total</div>
-                <div className="text-xl font-bold">{formatarNumero(evento.publicoTotal)}</div>
-              </div>
-            ) : (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Público Total</div>
-                <div className="text-xl font-medium text-gray-400">Não disponível</div>
-              </div>
-            )}
-            
-            {evento.arrecadacao ? (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Arrecadação</div>
-                <div className="text-xl font-bold">{formatarDinheiro(evento.arrecadacao)}</div>
-              </div>
-            ) : (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Arrecadação</div>
-                <div className="text-xl font-medium text-gray-400">Não disponível</div>
-              </div>
-            )}
-            
-            {evento.payPerView ? (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Vendas Pay-Per-View</div>
-                <div className="text-xl font-bold">{formatarNumero(evento.payPerView)}</div>
-              </div>
-            ) : (
-              <div className="p-3 bg-white rounded-md shadow-sm">
-                <div className="text-gray-500 text-sm mb-1">Vendas Pay-Per-View</div>
-                <div className="text-xl font-medium text-gray-400">Não disponível</div>
-              </div>
-            )}
-          </div>
+        <div className="bg-green-50 p-3 rounded-md border border-green-200 mb-6 flex items-center">
+          <div className="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+          <span className="text-green-800 font-medium">Evento finalizado</span>
         </div>
       )}
-
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-4">
-          Card de Lutas
-          {lutas.length === 0 && <span className="ml-2 text-sm font-normal text-gray-500">(Nenhuma luta registrada)</span>}
-        </h2>
+      
+      {/* Métricas do evento */}
+      {evento.finalizado && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {evento.publicoTotal !== null && evento.publicoTotal !== undefined && (
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-sm text-gray-500 mb-1">Público Total</p>
+              <p className="text-xl font-bold">{formatarNumero(evento.publicoTotal)}</p>
+            </div>
+          )}
+          
+          {evento.arrecadacao !== null && evento.arrecadacao !== undefined && (
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-sm text-gray-500 mb-1">Arrecadação</p>
+              <p className="text-xl font-bold">{formatarDinheiro(evento.arrecadacao)}</p>
+            </div>
+          )}
+          
+          {evento.payPerView !== null && evento.payPerView !== undefined && (
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-sm text-gray-500 mb-1">Pay-per-view</p>
+              <p className="text-xl font-bold">{formatarNumero(evento.payPerView)}</p>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Lista de lutas */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Card do Evento</h2>
         
-        {lutas.length > 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border">
+        {lutas.length === 0 ? (
+          <div className="bg-gray-50 p-4 rounded-md border border-gray-200 text-center">
+            <p className="text-gray-600">Nenhuma luta cadastrada para este evento.</p>
+            <Link 
+              href={`/admin?eventoId=${evento.id}`}
+              className="mt-2 inline-block text-blue-600 hover:underline"
+            >
+              Adicionar lutas
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
             {lutas.map((luta, index) => (
-              <div 
-                key={luta.id} 
-                className={`p-4 ${index !== lutas.length - 1 ? 'border-b' : ''}`}
-              >
+              <div key={luta.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-2">
-                  <div className="font-medium">
-                    {luta.categoria && <span className="text-sm text-gray-500 block">{luta.categoria}</span>}
-                    <span className="text-lg">{luta.lutadorA.nome} vs. {luta.lutadorB.nome}</span>
-                    {luta.resultado?.titulo && (
-                      <span className="ml-2 text-sm bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Disputa de Título</span>
-                    )}
+                  <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
+                    {luta.categoria || "Categoria não especificada"}
+                  </span>
+                  
+                  {luta.resultado && luta.resultado.titulo && (
+                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
+                      Disputa de Título
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex flex-col md:flex-row justify-between">
+                  <div className="flex-1 text-center md:text-left mb-2 md:mb-0">
+                    <p className="font-bold">{luta.lutadorA.nome}</p>
+                    <p className="text-sm text-gray-600">{luta.lutadorA.pais}</p>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    {(luta.resultado?.bonusLuta || luta.resultado?.bonusPerformance) && (
-                      <div className="text-sm bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                        {luta.resultado.bonusLuta && luta.resultado.bonusPerformance 
-                          ? 'Luta da Noite + Performance da Noite' 
-                          : luta.resultado.bonusLuta 
-                            ? 'Luta da Noite' 
-                            : 'Performance da Noite'}
-                      </div>
-                    )}
-                    
-                    <Link 
-                      href={`/eventos/${evento.id}/lutas/${luta.id}/editar`}
-                      className="text-blue-600 hover:text-blue-800 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50 text-sm"
-                    >
-                      Editar
-                    </Link>
+                  <div className="text-center px-4">
+                    <span className="text-sm font-medium bg-gray-100 px-3 py-1 rounded-full">
+                      VS
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1 text-center md:text-right">
+                    <p className="font-bold">{luta.lutadorB.nome}</p>
+                    <p className="text-sm text-gray-600">{luta.lutadorB.pais}</p>
                   </div>
                 </div>
                 
-                <div className="text-sm text-gray-600">
-                  {obterResultadoFormatado(luta)}
-                </div>
+                {evento.finalizado && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-sm">
+                      <span className="font-medium">Resultado:</span>{" "}
+                      {obterResultadoFormatado(luta)}
+                    </p>
+                    
+                    {luta.resultado && (luta.resultado.bonusLuta || luta.resultado.bonusPerformance) && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {luta.resultado.bonusLuta && (
+                          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
+                            Luta da Noite
+                          </span>
+                        )}
+                        {luta.resultado.bonusPerformance && (
+                          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">
+                            Performance da Noite
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
-          </div>
-        ) : evento.finalizado ? (
-          <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-yellow-700">
-            Este evento foi finalizado, mas nenhuma luta foi registrada.
-          </div>
-        ) : (
-          <div className="bg-blue-50 p-4 rounded border border-blue-200 text-blue-700">
-            Nenhuma luta foi adicionada a este evento ainda.
           </div>
         )}
       </div>
       
-      <div className="flex gap-3">
-        <BotaoFinalizar id={evento.id} finalizado={evento.finalizado} />
-        <BotaoExcluir id={evento.id} nome={evento.nome} />
+      <div className="mt-8">
+        <Link href="/eventos" className="text-blue-600 hover:underline">
+          ← Voltar para lista de eventos
+        </Link>
       </div>
     </div>
   );
