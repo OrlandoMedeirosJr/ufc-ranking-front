@@ -18,26 +18,40 @@ export default function BotaoFinalizar({ eventoId, finalizado = false }: BotaoFi
   const [open, setOpen] = useState(false);
 
   const handleFinalizar = async () => {
-    // Verificar se o ID é válido
-    if (!eventoId || isNaN(eventoId)) {
-      alert('ID do evento inválido. Por favor, recarregue a página e tente novamente.');
+    // Verificação de segurança para garantir que o ID é válido
+    if (!eventoId || isNaN(eventoId) || eventoId <= 0) {
+      alert('ID do evento inválido: ' + eventoId);
       setOpen(false);
       return;
     }
 
     setLoading(true);
+    
     try {
-      console.log(`Enviando solicitação para finalizar evento com ID: ${eventoId}`);
+      // Log para depuração
+      console.log(`Enviando solicitação para finalizar evento com ID: ${eventoId} (${typeof eventoId})`);
       
-      const response = await fetch(buildApiUrl(`eventos/${eventoId}/finalizar`), {
+      // Converter explicitamente o ID para número
+      const idNumerico = Number(eventoId);
+      console.log(`ID numérico convertido: ${idNumerico}`);
+      
+      // Construir a URL com o ID convertido
+      const url = buildApiUrl(`eventos/${idNumerico}/finalizar`);
+      console.log(`URL da requisição: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          id: idNumerico  // Incluir o ID explicitamente no corpo
+        }),
       });
       
       if (response.ok) {
         // Fechar o diálogo e atualizar a página
+        console.log('Evento finalizado com sucesso!');
         setOpen(false);
         router.refresh();
       } else {
