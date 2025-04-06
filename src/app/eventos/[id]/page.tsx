@@ -66,11 +66,24 @@ interface Evento {
 }
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function EventoDetalhesPage({ params }: PageProps) {
-  const eventoId = params.id;
+  let eventoId: string;
+  
+  try {
+    // Usar React.use() para desempacotar o objeto params
+    const unwrappedParams = React.use(params);
+    eventoId = unwrappedParams.id;
+  } catch (error) {
+    // Em caso de erro ao desempacotar params, usar uma abordagem alternativa
+    console.error('Erro ao acessar params com React.use():', error);
+    // @ts-ignore - Fallback para versões anteriores do Next.js
+    eventoId = params.id;
+  }
+  
+  console.log('ID do evento:', eventoId);
   
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutas, setLutas] = useState<Luta[]>([]);
@@ -78,9 +91,19 @@ export default function EventoDetalhesPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!eventoId) {
+      setError("ID do evento não encontrado");
+      setLoading(false);
+      return;
+    }
+
     // Função para buscar dados do evento na API
     async function getEvento() {
       try {
+        if (!eventoId) {
+          throw new Error('ID do evento não encontrado');
+        }
+        
         const res = await fetch(buildApiUrl(`eventos/${eventoId}?includeDetails=true`), { 
           cache: 'no-store'
         });
@@ -99,6 +122,10 @@ export default function EventoDetalhesPage({ params }: PageProps) {
     // Função para buscar lutas do evento na API
     async function getLutas() {
       try {
+        if (!eventoId) {
+          throw new Error('ID do evento não encontrado');
+        }
+        
         const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas`), { 
           cache: 'no-store'
         });
