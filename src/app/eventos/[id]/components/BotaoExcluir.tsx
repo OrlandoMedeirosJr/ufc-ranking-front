@@ -17,8 +17,17 @@ export default function BotaoExcluir({ eventoId }: BotaoExcluirProps) {
   const [open, setOpen] = useState(false);
 
   const handleDelete = async () => {
+    // Verificar se o ID é válido
+    if (!eventoId || isNaN(eventoId)) {
+      alert('ID do evento inválido. Por favor, recarregue a página e tente novamente.');
+      setOpen(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log(`Enviando solicitação para excluir evento com ID: ${eventoId}`);
+      
       const response = await fetch(buildApiUrl(`eventos/${eventoId}`), {
         method: 'DELETE',
         headers: {
@@ -32,7 +41,8 @@ export default function BotaoExcluir({ eventoId }: BotaoExcluirProps) {
         router.push('/eventos');
         router.refresh();
       } else {
-        console.error('Erro ao excluir evento:', await response.text());
+        const errorText = await response.text();
+        console.error('Erro ao excluir evento:', errorText);
         alert('Ocorreu um erro ao excluir o evento. Por favor, tente novamente.');
       }
     } catch (error) {
@@ -46,7 +56,11 @@ export default function BotaoExcluir({ eventoId }: BotaoExcluirProps) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" className="h-10 flex items-center space-x-2">
+        <Button 
+          variant="destructive" 
+          className="h-10 flex items-center space-x-2"
+          onClick={() => console.log('Botão Excluir clicado para evento ID:', eventoId)}
+        >
           <Trash className="h-4 w-4" />
           <span>Excluir</span>
         </Button>
@@ -54,6 +68,9 @@ export default function BotaoExcluir({ eventoId }: BotaoExcluirProps) {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Tem certeza que deseja excluir este evento?</AlertDialogTitle>
+          <p className="text-sm text-gray-500">
+            Esta ação não pode ser desfeita. Todas as lutas associadas a este evento também serão excluídas.
+          </p>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>

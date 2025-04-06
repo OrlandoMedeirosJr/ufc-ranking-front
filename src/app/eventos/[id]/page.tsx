@@ -66,22 +66,12 @@ interface Evento {
 }
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 export default function EventoDetalhesPage({ params }: PageProps) {
-  let eventoId: string;
-  
-  try {
-    // Usar React.use() para desempacotar o objeto params
-    const unwrappedParams = React.use(params);
-    eventoId = unwrappedParams.id;
-  } catch (error) {
-    // Em caso de erro ao desempacotar params, usar uma abordagem alternativa
-    console.error('Erro ao acessar params com React.use():', error);
-    // @ts-ignore - Fallback para versões anteriores do Next.js
-    eventoId = params.id;
-  }
+  // Extrair o ID diretamente de params sem usar React.use()
+  const eventoId = params.id;
   
   console.log('ID do evento:', eventoId);
   
@@ -298,10 +288,10 @@ export default function EventoDetalhesPage({ params }: PageProps) {
         
         <div className="mt-4 md:mt-0 space-x-2 flex flex-wrap gap-2">
           {!evento.finalizado && (
-            <BotaoFinalizar eventoId={evento.id} finalizado={evento.finalizado} />
+            <BotaoFinalizar eventoId={Number(evento.id)} finalizado={evento.finalizado} />
           )}
           
-          <BotaoExcluir eventoId={evento.id} />
+          <BotaoExcluir eventoId={Number(evento.id)} />
           
           <Link href={`/eventos/${evento.id}/editar`} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
             Editar Evento
