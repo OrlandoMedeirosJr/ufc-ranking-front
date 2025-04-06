@@ -35,6 +35,7 @@ interface Luta {
   lutadorB: Lutador;
   categoria: string;
   resultado?: Resultado;
+  bonus?: string; // 'luta', 'performance', 'ambos' ou undefined/null
 }
 
 interface Evento {
@@ -80,7 +81,7 @@ export default function EventoDetalhesPage({ params }: PageProps) {
     // Função para buscar dados do evento na API
     async function getEvento() {
       try {
-        const res = await fetch(buildApiUrl(`eventos/${eventoId}`), { 
+        const res = await fetch(buildApiUrl(`eventos/${eventoId}?includeDetails=true`), { 
           cache: 'no-store'
         });
         
@@ -125,6 +126,15 @@ export default function EventoDetalhesPage({ params }: PageProps) {
         // Verificar se o evento contém lutas
         if (data.lutas && Array.isArray(data.lutas)) {
           console.log(`Encontradas ${data.lutas.length} lutas diretamente no evento:`, data.lutas);
+          // Debugar a estrutura das lutas, especificamente os bônus
+          data.lutas.forEach((luta, index) => {
+            console.log(`Luta ${index + 1} (ID: ${luta.id}) - Estrutura do resultado:`, luta.resultado);
+            console.log(`Luta ${index + 1} - Bônus:`, luta.bonus, 
+              luta.resultado ? { 
+                bonusLuta: luta.resultado.bonusLuta, 
+                bonusPerformance: luta.resultado.bonusPerformance 
+              } : 'Sem resultado');
+          });
           setLutas(data.lutas);
         } else {
           console.log('Evento não contém lutas ou não está no formato esperado');
@@ -167,6 +177,8 @@ export default function EventoDetalhesPage({ params }: PageProps) {
   };
 
   const obterResultadoFormatado = (luta: Luta) => {
+    console.log('Formatando resultado para luta:', luta.id, 'Resultado:', luta.resultado);
+    
     if (!luta.resultado) return 'Não realizada';
     
     const vencedor = luta.resultado.vencedor;
@@ -358,20 +370,30 @@ export default function EventoDetalhesPage({ params }: PageProps) {
                       {obterResultadoFormatado(luta)}
                     </p>
                     
-                    {luta.resultado && (luta.resultado.bonusLuta || luta.resultado.bonusPerformance) && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {luta.resultado.bonusLuta && (
-                          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
-                            Luta da Noite
-                          </span>
-                        )}
-                        {luta.resultado.bonusPerformance && (
-                          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">
-                            Performance da Noite
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {(() => {
+                      console.log('Verificando bônus da luta:', luta.id);
+                      console.log('luta.resultado:', luta.resultado);
+                      console.log('luta.bonus:', luta.bonus);
+                      
+                      // Verificar se existe luta.bonus como alternativa para bônus
+                      const temBonusLuta = (luta.resultado?.bonusLuta || luta.bonus === 'luta' || luta.bonus === 'ambos');
+                      const temBonusPerformance = (luta.resultado?.bonusPerformance || luta.bonus === 'performance' || luta.bonus === 'ambos');
+                      
+                      return (temBonusLuta || temBonusPerformance) && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {temBonusLuta && (
+                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
+                              Luta da Noite
+                            </span>
+                          )}
+                          {temBonusPerformance && (
+                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">
+                              Performance da Noite
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
