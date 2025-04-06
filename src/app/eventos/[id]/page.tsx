@@ -94,7 +94,8 @@ export default function EventoDetalhesPage({ params }: PageProps) {
           throw new Error('ID do evento não encontrado');
         }
         
-        const res = await fetch(buildApiUrl(`eventos/${eventoId}?includeDetails=true`), { 
+        // Adicione parâmetro para incluir detalhes completos de todas as lutas
+        const res = await fetch(buildApiUrl(`eventos/${eventoId}?includeDetails=true&includeBonus=true`), { 
           cache: 'no-store'
         });
         
@@ -116,7 +117,8 @@ export default function EventoDetalhesPage({ params }: PageProps) {
           throw new Error('ID do evento não encontrado');
         }
         
-        const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas`), { 
+        // Adicione parâmetro para incluir bônus
+        const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas?includeBonus=true`), { 
           cache: 'no-store'
         });
         
@@ -143,16 +145,56 @@ export default function EventoDetalhesPage({ params }: PageProps) {
         // Verificar se o evento contém lutas
         if (data.lutas && Array.isArray(data.lutas)) {
           console.log(`Encontradas ${data.lutas.length} lutas diretamente no evento:`, data.lutas);
-          // Debugar a estrutura das lutas, especificamente os bônus
-          data.lutas.forEach((luta, index) => {
-            console.log(`Luta ${index + 1} (ID: ${luta.id}) - Estrutura do resultado:`, luta.resultado);
-            console.log(`Luta ${index + 1} - Bônus:`, luta.bonus, 
-              luta.resultado ? { 
-                bonusLuta: luta.resultado.bonusLuta, 
-                bonusPerformance: luta.resultado.bonusPerformance 
-              } : 'Sem resultado');
+          
+          // Processar e normalizar as lutas recebidas para garantir a estrutura correta
+          const lutasProcessadas = data.lutas.map(luta => {
+            // Garantir que resultado existe ou criar objeto vazio
+            const resultado = luta.resultado || {};
+            
+            // Verificar se há informações de bônus em diferentes formatos
+            let bonusLuta = false;
+            let bonusPerformance = false;
+            
+            // Verificar no objeto resultado
+            if (resultado) {
+              bonusLuta = !!resultado.bonusLuta;
+              bonusPerformance = !!resultado.bonusPerformance;
+            }
+            
+            // Verificar na propriedade de string bonus
+            if (typeof luta.bonus === 'string') {
+              const bonusString = luta.bonus.toLowerCase();
+              bonusLuta = bonusLuta || 
+                          bonusString === 'luta' || 
+                          bonusString === 'ambos' || 
+                          bonusString.includes('luta da noite');
+              
+              bonusPerformance = bonusPerformance || 
+                                 bonusString === 'performance' || 
+                                 bonusString === 'ambos' || 
+                                 bonusString.includes('performance da noite');
+                                  
+              if (bonusString.includes(',')) {
+                const bonusParts = bonusString.split(',').map(p => p.trim());
+                bonusLuta = bonusLuta || bonusParts.includes('luta') || bonusParts.includes('luta da noite');
+                bonusPerformance = bonusPerformance || bonusParts.includes('performance') || bonusParts.includes('performance da noite');
+              }
+            }
+            
+            // Garantir que as informações de bônus sejam mantidas nas duas estruturas possíveis
+            return {
+              ...luta,
+              bonus: luta.bonus || '',
+              resultado: {
+                ...resultado,
+                bonusLuta: bonusLuta,
+                bonusPerformance: bonusPerformance
+              }
+            };
           });
-          setLutas(data.lutas);
+          
+          console.log('Lutas processadas com estrutura normalizada:', lutasProcessadas);
+          setLutas(lutasProcessadas);
         } else {
           console.log('Evento não contém lutas ou não está no formato esperado');
           // Tentar carregar lutas separadamente como antes
@@ -392,9 +434,43 @@ export default function EventoDetalhesPage({ params }: PageProps) {
                       console.log('luta.resultado:', luta.resultado);
                       console.log('luta.bonus:', luta.bonus);
                       
-                      // Verificar se existe luta.bonus como alternativa para bônus
-                      const temBonusLuta = (luta.resultado?.bonusLuta || luta.bonus === 'luta' || luta.bonus === 'ambos');
-                      const temBonusPerformance = (luta.resultado?.bonusPerformance || luta.bonus === 'performance' || luta.bonus === 'ambos');
+                      // Verificar todos os formatos possíveis para bônus
+                      let temBonusLuta = false;
+                      let temBonusPerformance = false;
+                      
+                      // Variação 1: Dentro do objeto resultado
+                      if (luta.resultado) {
+                        temBonusLuta = temBonusLuta || !!luta.resultado.bonusLuta;
+                        temBonusPerformance = temBonusPerformance || !!luta.resultado.bonusPerformance;
+                      }
+                      
+                      // Variação 2: Como uma string direta 'luta', 'performance', 'ambos'
+                      if (luta.bonus) {
+                        temBonusLuta = temBonusLuta || 
+                                      luta.bonus === 'luta' || 
+                                      luta.bonus === 'ambos' || 
+                                      luta.bonus.includes('Luta da Noite');
+                        
+                        temBonusPerformance = temBonusPerformance || 
+                                              luta.bonus === 'performance' || 
+                                              luta.bonus === 'ambos' || 
+                                              luta.bonus.includes('Performance da Noite');
+                      }
+                      
+                      // Variação 3: Como uma string separada por vírgula
+                      if (typeof luta.bonus === 'string' && luta.bonus.includes(',')) {
+                        const bonusArray = luta.bonus.split(',').map(b => b.trim());
+                        temBonusLuta = temBonusLuta || 
+                                      bonusArray.includes('luta') || 
+                                      bonusArray.includes('Luta da Noite');
+                        
+                        temBonusPerformance = temBonusPerformance || 
+                                              bonusArray.includes('performance') || 
+                                              bonusArray.includes('Performance da Noite');
+                      }
+                      
+                      // Mostrar no console o resultado final
+                      console.log(`Luta ${luta.id} - Tem bônus de luta: ${temBonusLuta}, Tem bônus de performance: ${temBonusPerformance}`);
                       
                       return (temBonusLuta || temBonusPerformance) && (
                         <div className="mt-1 flex flex-wrap gap-1">
