@@ -1,4 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { API_URL } from '@/config/api';
+
+// Esta rota servidor apenas como proxy para o backend, mas com funcionalidade de log
+// para fins de depuração
+
+/**
+ * Função GET para buscar eventos
+ */
+export async function GET(request: NextRequest) {
+  console.log('[API Proxy] GET /api/eventos - iniciando requisição proxy para o backend');
+  
+  try {
+    const params = request.nextUrl.searchParams;
+    let queryString = '';
+    
+    if (params.size > 0) {
+      queryString = `?${params.toString()}`;
+    }
+    
+    // Usar a URL base da configuração centralizada
+    const backendUrl = `${API_URL}/eventos${queryString}`;
+    console.log(`[API Proxy] Encaminhando para: ${backendUrl}`);
+    
+    const response = await fetch(backendUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      console.error(`[API Proxy] Erro na resposta do backend: ${response.status} ${response.statusText}`);
+      const error = await response.text();
+      return NextResponse.json(
+        { error: 'Erro ao comunicar com o backend', status: response.status, details: error },
+        { status: 502 }
+      );
+    }
+    
+    const data = await response.json();
+    console.log(`[API Proxy] Resposta recebida do backend com sucesso, ${JSON.stringify(data).length} bytes`);
+    
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('[API Proxy] Erro ao processar requisição:', error);
+    return NextResponse.json(
+      { error: 'Erro interno do servidor proxy', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
 
 // Essa função processa a requisição POST para criar um evento com lutas
 export async function POST(request: NextRequest) {
@@ -44,7 +95,6 @@ export async function POST(request: NextRequest) {
     
     console.log('[API] Enviando dados para o backend:', JSON.stringify(dadosEvento));
     
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
     console.log(`[API] URL do backend: ${API_URL}/eventos`);
     
     try {

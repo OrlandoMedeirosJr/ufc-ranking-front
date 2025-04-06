@@ -232,7 +232,15 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
 
       // Adicionar campos opcionais se estiverem preenchidos
       if (formData.data) {
-        eventoAtualizado.data = new Date(formData.data).toISOString();
+        // Corrigir problema de timezone
+        // Pegar a data selecionada (YYYY-MM-DD) e criar uma data às 12:00 
+        // para evitar problemas de timezone
+        const [year, month, day] = formData.data.split('-').map(num => parseInt(num, 10));
+        const dataAjustada = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+        eventoAtualizado.data = dataAjustada.toISOString();
+        
+        console.log(`Data original: ${formData.data}`);
+        console.log(`Data ajustada: ${dataAjustada.toISOString()}`);
       }
 
       if (formData.local) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -8,6 +8,8 @@ import { notFound } from 'next/navigation';
 import React from 'react';
 import BotaoExcluir from './components/BotaoExcluir';
 import BotaoFinalizar from './components/BotaoFinalizar';
+import { formatarNumero, formatarMoeda } from '@/utils/formatters';
+import { buildApiUrl } from '@/config/api';
 
 interface Lutador {
   id: number;
@@ -67,11 +69,47 @@ interface PageProps {
   params: { id: string };
 }
 
-export default function EventoDetalhesPage({ params }: PageProps) {
-  // Usar React.use para "unwrap" os parâmetros
-  const unwrappedParams = React.use(params);
-  const id = unwrappedParams.id;
+export default async function EventoDetalhesPage({ params }: PageProps) {
+  const eventoId = params.id;
   
+  // Função para buscar dados do evento na API
+  async function getEvento() {
+    try {
+      const res = await fetch(buildApiUrl(`eventos/${eventoId}`), { 
+        cache: 'no-store',
+        next: { tags: ['evento', `evento-${eventoId}`] }
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Erro ao buscar evento: ${res.status}`);
+      }
+      
+      return res.json();
+    } catch (error) {
+      console.error('Erro ao buscar evento:', error);
+      throw error;
+    }
+  }
+
+  // Função para buscar lutas do evento na API
+  async function getLutas() {
+    try {
+      const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas`), { 
+        cache: 'no-store',
+        next: { tags: ['lutas', `lutas-evento-${eventoId}`] }
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Erro ao buscar lutas: ${res.status}`);
+      }
+      
+      return res.json();
+    } catch (error) {
+      console.error('Erro ao buscar lutas:', error);
+      return { lutas: [] };
+    }
+  }
+
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutas, setLutas] = useState<Luta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,14 +122,7 @@ export default function EventoDetalhesPage({ params }: PageProps) {
         setCarregando(true);
         setError(null);
         
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-        const response = await fetch(`${API_URL}/eventos/${id}`);
-        
-        if (!response.ok) {
-          throw new Error(`Erro ao carregar evento: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
+        const data = await getEvento();
         console.log('Dados do evento:', data);
         setEvento(data);
         
@@ -103,6 +134,10 @@ export default function EventoDetalhesPage({ params }: PageProps) {
           console.log('Evento não contém lutas ou não está no formato esperado');
           // Tentar carregar lutas separadamente como antes
           try {
+            const lutasData = await getLutas();
+            console.log('Lutas carregadas separadamente:', lutasData);
+            setLutas(lutasData.lutas);
+          } catch (lutasError) {
             const lutasResponse = await fetch(`${API_URL}/lutas?eventoId=${id}`);
             if (lutasResponse.ok) {
               const lutasData = await lutasResponse.json();
@@ -112,9 +147,7 @@ export default function EventoDetalhesPage({ params }: PageProps) {
               console.log('Não foi possível carregar lutas separadamente');
               setLutas([]);
             }
-          } catch (lutasError) {
             console.error('Erro ao carregar lutas:', lutasError);
-            setLutas([]);
           }
         }
       } catch (error) {

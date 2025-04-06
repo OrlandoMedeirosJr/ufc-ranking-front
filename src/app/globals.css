@@ -76,6 +76,20 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  
+  /* Cores do ranking */
+  --ranking-gold-dark: #B59410;
+  --ranking-gold-light: #FFC107;
+  --ranking-blue-dark: #1E40AF;
+  --ranking-blue-light: #3B82F6;
+  
+  /* Espaçamentos consistentes */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
 }
 
 .dark {
@@ -110,6 +124,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  
+  /* Cores do ranking no tema escuro */
+  --ranking-gold-dark: #D4AF37;
+  --ranking-gold-light: #F0C419;
+  --ranking-blue-dark: #2563EB;
+  --ranking-blue-light: #60A5FA;
 }
 
 @layer base {
@@ -118,5 +138,142 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Estilos para as cores do ranking */
+.bg-ranking-gold-dark {
+  background-color: var(--ranking-gold-dark);
+  color: white;
+}
+
+.bg-ranking-gold-light {
+  background-color: var(--ranking-gold-light);
+  color: #333;
+}
+
+.bg-ranking-blue-dark {
+  background-color: var(--ranking-blue-dark);
+  color: white;
+}
+
+.bg-ranking-blue-light {
+  background-color: var(--ranking-blue-light);
+  color: #333;
+}
+
+/* Estilos para layout de página */
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+.page-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: var(--spacing-sm);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Estilos para cards */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xl);
+}
+
+.ranking-table th {
+  background-color: #1F2937;
+  color: white;
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-weight: 600;
+}
+
+.ranking-table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.ranking-category {
+  margin-bottom: var(--spacing-2xl);
+}
+
+/* Badges e ícones */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.country-flag {
+  margin-right: var(--spacing-xs);
+  border-radius: 2px;
+}
+
+/* Estilos para navegação em abas */
+.tab-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid #E5E7EB;
+  overflow-x: auto;
+  padding-bottom: var(--spacing-sm);
+}
+
+.tab-button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-weight: 500;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease;
+}
+
+.tab-button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+  }
+  
+  .hide-on-mobile {
+    display: none;
   }
 }

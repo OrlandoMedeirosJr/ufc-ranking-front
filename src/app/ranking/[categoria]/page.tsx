@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import RankingTable from "@/components/RankingTable";
+import { rankingColorClassMap } from "@/utils/rankingColors";
+import { buildApiUrl } from "@/config/api";
 
 interface Lutador {
   nome: string;
@@ -42,9 +44,11 @@ export default async function RankingPage({ params }: { params: { categoria: str
     // Obtém o nome da categoria formatado
     const categoriaFormatada = categoriasMap[categoria] || categoria;
     
-    console.log(`URL da requisição: http://localhost:3333/ranking/${categoriaFormatada}`);
+    // Construir a URL da API usando a função de utilidade
+    const apiUrl = buildApiUrl(`ranking/${categoriaFormatada}`);
+    console.log(`URL da requisição: ${apiUrl}`);
     
-    const res = await fetch(`http://localhost:3333/ranking/${categoriaFormatada}`, { 
+    const res = await fetch(apiUrl, { 
       cache: "no-store",
       next: { revalidate: 0 } 
     });
@@ -57,15 +61,6 @@ export default async function RankingPage({ params }: { params: { categoria: str
     const data: RankingItem[] = await res.json();
     console.log(`Dados recebidos: ${data.length} itens`);
 
-    // Mapeamento de cores para classes CSS
-    const corBackgroundMap: Record<string, string> = {
-      "dourado-escuro": "bg-yellow-600 text-white hover:bg-yellow-700",
-      "dourado-claro": "bg-yellow-400 hover:bg-yellow-500",
-      "azul-escuro": "bg-blue-700 text-white hover:bg-blue-800",
-      "azul-claro": "bg-blue-400 hover:bg-blue-500",
-      "": "bg-gray-100 hover:bg-gray-200"
-    };
-
     // Formatar título da categoria para exibição
     const categoriaTitulo = categoriasMap[categoria] || categoria.split('-').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
@@ -76,7 +71,7 @@ export default async function RankingPage({ params }: { params: { categoria: str
         dados={data}
         categoria={categoria}
         categoriaTitulo={categoriaTitulo}
-        corBackgroundMap={corBackgroundMap}
+        corBackgroundMap={rankingColorClassMap}
       />
     );
   } catch (error) {

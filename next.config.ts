@@ -1,7 +1,51 @@
-import type { NextConfig } from "next";
+import { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: true,
+  poweredByHeader: false,
+  transpilePackages: ['lucide-react'],
+  output: 'standalone',
+  env: {
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3333',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  },
+  webpack: (config, { isServer }) => {
+    // Resolver configuração para a dependência tailwind-merge
+    config.resolve = config.resolve || {};
+    config.resolve.fallback = config.resolve.fallback || {};
+    
+    // Se for necessário expor módulos específicos
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        path: false,
+        fs: false,
+      };
+    }
+    
+    return config;
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

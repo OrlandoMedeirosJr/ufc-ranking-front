@@ -1,44 +1,75 @@
 'use client'
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertDialog, AlertDialogContent, AlertDialogCancel, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { FlagIcon } from '@heroicons/react/24/outline';
+import { apiPut } from '@/config/api';
 
-export default function BotaoFinalizar({ id }: { id: string }) {
+interface BotaoFinalizarProps {
+  eventoId: string;
+  finalizado: boolean;
+}
+
+export default function BotaoFinalizar({ eventoId, finalizado }: BotaoFinalizarProps) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const handleFinalizar = async () => {
-    if (!window.confirm('Tem certeza que deseja finalizar este evento? Depois de finalizado, não será possível modificar as lutas ou seus resultados.')) {
-      return;
-    }
-
+    setLoading(true);
     try {
-      const response = await fetch(`http://localhost:3333/eventos/${id}/finalizar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await apiPut(`eventos/${eventoId}/finalizar`, {
+        finalizado: !finalizado
       });
-
+      
       if (response.ok) {
-        alert('Evento finalizado com sucesso!');
-        // Recarrega a página para mostrar o status atualizado
-        window.location.reload();
+        // Fechar o diálogo e atualizar a página
+        setOpen(false);
+        router.refresh();
       } else {
-        const data = await response.json();
-        alert(`Erro ao finalizar evento: ${data.error || 'Erro desconhecido'}`);
+        console.error('Erro ao alterar status do evento:', await response.text());
+        alert('Ocorreu um erro ao alterar o status do evento. Por favor, tente novamente.');
       }
     } catch (error) {
-      console.error('Erro ao finalizar evento:', error);
-      alert('Erro ao finalizar evento. Verifique o console para mais detalhes.');
+      console.error('Erro ao alterar status do evento:', error);
+      alert('Ocorreu um erro ao alterar o status do evento. Por favor, tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <button
-      onClick={handleFinalizar}
-      className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center justify-center"
-      title="Finalizar evento"
-    >
-      ✓ Finalizar
-    </button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button 
+          variant={finalizado ? "default" : "secondary"} 
+          className="h-10 flex items-center space-x-2"
+        >
+          <FlagIcon className="h-5 w-5" />
+          <span>{finalizado ? 'Reabrir Evento' : 'Finalizar Evento'}</span>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {finalizado 
+              ? 'Tem certeza que deseja reabrir este evento?' 
+              : 'Tem certeza que deseja finalizar este evento?'}
+          </AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <Button 
+            variant={finalizado ? "default" : "secondary"} 
+            onClick={handleFinalizar} 
+            disabled={loading}
+          >
+            {loading ? 'Processando...' : finalizado ? 'Reabrir Evento' : 'Finalizar Evento'}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 } 

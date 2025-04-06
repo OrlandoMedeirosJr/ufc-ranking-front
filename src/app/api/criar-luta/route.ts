@@ -1,110 +1,55 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { API_URL } from '@/config/api';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const dados = await request.json();
-    console.log('Dados recebidos para criar luta:', dados);
-
-    // Verificações básicas
-    if (!dados.eventoId) {
-      return NextResponse.json({ 
-        erro: 'ID do evento é obrigatório' 
-      }, { status: 400 });
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    const body = await request.json();
+    console.log("[API Proxy] POST /api/criar-luta - Recebendo dados:", body);
     
-    // Lista de diferentes formatos para tentar
-    const formatosLuta = [
-      // Formato 1: Usando o formato original com nome
-      {
-        eventoId: dados.eventoId,
-        lutadorA: { nome: dados.lutador1 || dados.lutadorA?.nome || dados.lutadorA },
-        lutadorB: { nome: dados.lutador2 || dados.lutadorB?.nome || dados.lutadorB },
-        categoria: dados.categoria || "Não definida"
-      },
-      
-      // Formato 2: Usando apenas strings para os lutadores
-      {
-        eventoId: dados.eventoId,
-        lutadorA: dados.lutador1 || dados.lutadorA?.nome || dados.lutadorA,
-        lutadorB: dados.lutador2 || dados.lutadorB?.nome || dados.lutadorB,
-        categoria: dados.categoria || "Não definida"
-      },
-      
-      // Formato 3: Usando ids numéricas fictícias
-      {
-        eventoId: dados.eventoId,
-        lutadorA: 55, // ID fictício para teste
-        lutadorB: 57, // ID fictício para teste
-        categoria: dados.categoria || "Não definida"
-      },
-      
-      // Formato 4: Simplificado ao máximo
-      {
-        eventoId: dados.eventoId,
-        lutadorA: "Royce Gracie",
-        lutadorB: "Ken Shamrock",
-        categoria: "Peso Médio"
-      }
-    ];
-
-    // Tentar cada formato
-    const resultados = [];
+    const eventoId = body.eventoId;
+    const lutaData = body.lutaData;
     
-    for (let i = 0; i < formatosLuta.length; i++) {
-      const formato = formatosLuta[i];
-      try {
-        console.log(`Tentando formato ${i + 1}:`, JSON.stringify(formato));
-        
-        const response = await fetch(`${API_URL}/lutas`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formato)
-        });
-        
-        const status = response.status;
-        const texto = await response.text();
-        let respostaJson;
-        
-        try {
-          respostaJson = JSON.parse(texto);
-        } catch (e) {
-          respostaJson = null;
-        }
-        
-        resultados.push({
-          formato: i + 1,
-          status,
-          sucesso: response.ok,
-          resposta: respostaJson || texto
-        });
-        
-        // Se algum formato funcionar, interromper os testes
-        if (response.ok) {
-          break;
-        }
-      } catch (erro) {
-        resultados.push({
-          formato: i + 1,
-          sucesso: false,
-          erro: erro.message
-        });
-      }
+    if (!eventoId || !lutaData) {
+      return NextResponse.json(
+        { error: 'Dados inválidos: eventoId e lutaData são obrigatórios' }, 
+        { status: 400 }
+      );
     }
-
-    // Retornar os resultados de todas as tentativas
-    return NextResponse.json({ 
-      resultados,
-      mensagem: 'Testes de formato de luta concluídos'
+    
+    const backendUrl = `${API_URL}/eventos/${eventoId}/lutas`;
+    
+    console.log(`[API Proxy] Encaminhando para: ${backendUrl}`);
+    console.log(`[API Proxy] Dados enviados: ${JSON.stringify(lutaData)}`);
+    
+    const response = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lutaData),
     });
     
-  } catch (erro) {
-    console.error('Erro ao processar requisição:', erro);
-    return NextResponse.json({ 
-      erro: `Erro ao processar requisição: ${erro.message}`
-    }, { status: 500 });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API Proxy] Erro do backend: ${response.status} ${response.statusText}`);
+      console.error(`[API Proxy] Detalhes: ${errorText}`);
+      
+      return NextResponse.json(
+        { error: 'Erro ao adicionar luta ao evento', backendError: errorText },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    console.log("[API Proxy] Resposta do backend:", data);
+    
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("[API Proxy] Erro ao processar requisição:", error);
+    
+    return NextResponse.json(
+      { error: 'Erro interno ao processar a requisição', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }

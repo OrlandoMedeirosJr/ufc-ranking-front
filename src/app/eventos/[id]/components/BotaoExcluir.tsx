@@ -1,43 +1,62 @@
 'use client'
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertDialog, AlertDialogContent, AlertDialogCancel, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { apiDelete } from '@/config/api';
 
-export default function BotaoExcluir({ id }: { id: string }) {
+interface BotaoExcluirProps {
+  eventoId: string;
+}
+
+export default function BotaoExcluir({ eventoId }: BotaoExcluirProps) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const handleExcluir = async () => {
-    if (!window.confirm('Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
+  const handleDelete = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`http://localhost:3333/eventos/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
+      const response = await apiDelete(`eventos/${eventoId}`);
+      
       if (response.ok) {
-        alert('Evento excluído com sucesso!');
+        // Fechar o diálogo e redirecionar
+        setOpen(false);
         router.push('/eventos');
+        router.refresh();
       } else {
-        const data = await response.json();
-        alert(`Erro ao excluir evento: ${data.error || 'Erro desconhecido'}`);
+        console.error('Erro ao excluir evento:', await response.text());
+        alert('Ocorreu um erro ao excluir o evento. Por favor, tente novamente.');
       }
     } catch (error) {
       console.error('Erro ao excluir evento:', error);
-      alert('Erro ao excluir evento. Verifique o console para mais detalhes.');
+      alert('Ocorreu um erro ao excluir o evento. Por favor, tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <button
-      onClick={handleExcluir}
-      className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center justify-center"
-      title="Excluir evento"
-    >
-      🗑️ Excluir
-    </button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" className="h-10 flex items-center space-x-2">
+          <TrashIcon className="h-5 w-5" />
+          <span>Excluir</span>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Tem certeza que deseja excluir este evento?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+            {loading ? 'Excluindo...' : 'Excluir Permanentemente'}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 } 

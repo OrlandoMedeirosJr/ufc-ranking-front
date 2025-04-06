@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Modal from 'react-modal';
 import LutaForm, { Luta } from '@/components/LutaForm';
+import { buildApiUrl, apiGet, apiPost } from '@/config/api';
 
 export default function NovoEventoPage() {
   const router = useRouter();
@@ -25,17 +26,44 @@ export default function NovoEventoPage() {
   // Carregar lutadores já cadastrados ao iniciar
   useEffect(() => {
     const carregarLutadores = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}/lutadores`);
-        if (response.ok) {
-          const data = await response.json();
-          // Extrair apenas os nomes dos lutadores para verificação rápida
-          const nomes = data.map((lutador: any) => lutador.nome.toLowerCase().trim());
-          setLutadoresCadastrados(nomes);
+      let tentativas = 0;
+      const maxTentativas = 3;
+      
+      while (tentativas < maxTentativas) {
+        try {
+          console.log(`Tentativa ${tentativas + 1} de carregar lutadores...`);
+          
+          const response = await apiGet('lutadores', {
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Extrair apenas os nomes dos lutadores para verificação rápida
+            const nomes = data.map((lutador: any) => lutador.nome.toLowerCase().trim());
+            console.log(`Lutadores carregados com sucesso: ${nomes.length}`);
+            setLutadoresCadastrados(nomes);
+            return; // Encerra o loop se bem-sucedido
+          } else {
+            console.error(`Erro de resposta: ${response.status} ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar lutadores:', error);
         }
-      } catch (error) {
-        console.error('Erro ao carregar lutadores:', error);
+        
+        // Aumenta o tempo de espera entre as tentativas
+        const tempoEspera = (tentativas + 1) * 1000;
+        console.log(`Aguardando ${tempoEspera}ms antes da próxima tentativa...`);
+        await new Promise(resolve => setTimeout(resolve, tempoEspera));
+        
+        tentativas++;
       }
+      
+      // Se chegou aqui, todas as tentativas falharam
+      console.error(`Falha ao carregar lutadores após ${maxTentativas} tentativas`);
     };
     
     carregarLutadores();
@@ -119,14 +147,51 @@ export default function NovoEventoPage() {
   };
 
   const verificarLutador = async (nome: string, index: number, campo: 'lutador1' | 'lutador2') => {
-    // Verificar se o nome do lutador já está na lista de lutadores cadastrados
+    // Verificar primeiro localmente
+    const nomeNormalizado = nome.toLowerCase().trim();
+    
+    // Registrar log para debug
+    console.log(`Verificando lutador: "${nomeNormalizado}"`);
+    console.log(`Lista de lutadores em cache: ${lutadoresCadastrados.length}`);
+    
     const lutadorJaCadastrado = lutadoresCadastrados.some(
-      lutadorNome => lutadorNome === nome.toLowerCase().trim()
+      lutadorNome => lutadorNome === nomeNormalizado
     );
     
-    // Apenas mostrar o modal se o nome não estiver cadastrado e tiver pelo menos 3 caracteres
+    // Se não encontrado localmente, fazer uma verificação direta na API
     if (!lutadorJaCadastrado && nome.trim().length >= 3) {
-      // Verificar se já não está digitando outro nome (evita interrupções frequentes)
+      try {
+        console.log(`Verificando lutador na API: ${nome}`);
+        const response = await apiGet(`lutadores?nome=${encodeURIComponent(nome)}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Resposta da API para "${nome}":`, data);
+          
+          // Se encontrou o lutador na API, adicionar ao cache e não mostrar o modal
+          if (data && data.length > 0) {
+            const novoNomeLutador = data[0].nome.toLowerCase().trim();
+            console.log(`Lutador encontrado na API: ${novoNomeLutador}`);
+            
+            // Adicionar à lista de lutadores conhecidos para não precisar verificar de novo
+            if (!lutadoresCadastrados.includes(novoNomeLutador)) {
+              setLutadoresCadastrados(prev => [...prev, novoNomeLutador]);
+            }
+            
+            return; // O lutador existe, não precisa mostrar o modal
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar lutador na API:', error);
+      }
+      
+      // Se chegou aqui, o lutador não foi encontrado nem localmente nem na API
+      // Mostrar o modal para cadastrar
       setNovoLutador({
         nome: nome,
         pais: '',
@@ -184,7 +249,15 @@ export default function NovoEventoPage() {
 
       // Adicionar campos opcionais se estiverem preenchidos
       if (formData.data) {
-        eventoBasico.data = new Date(formData.data).toISOString();
+        // Corrigir problema de timezone
+        // Pegar a data selecionada (YYYY-MM-DD) e criar uma data às 12:00 
+        // para evitar problemas de timezone
+        const [year, month, day] = formData.data.split('-').map(num => parseInt(num, 10));
+        const dataAjustada = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+        eventoBasico.data = dataAjustada.toISOString();
+        
+        console.log(`Data original: ${formData.data}`);
+        console.log(`Data ajustada: ${dataAjustada.toISOString()}`);
       }
 
       if (formData.local) {

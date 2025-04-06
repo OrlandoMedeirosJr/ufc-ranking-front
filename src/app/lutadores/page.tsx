@@ -1,137 +1,158 @@
-'use client';
-
-import { useState, useEffect } from "react";
+import Link from 'next/link';
+import { buildApiUrl } from "@/config/api";
 
 interface Lutador {
   id: number;
   nome: string;
+  apelido: string | null;
   pais: string;
+  categoriaAtual: string;
   sexo: string;
+  altura?: number;
 }
 
-export default function LutadoresPage() {
-  const [lutadores, setLutadores] = useState<Lutador[]>([]);
-  const [usandoDadosExemplo, setUsandoDadosExemplo] = useState(true);
-  const [carregando, setCarregando] = useState(true);
-  const [atualizacaoForcada, setAtualizacaoForcada] = useState(0);
-
-  // Dados de exemplo para fallback
-  const lutadoresExemplo: Lutador[] = [
-    { id: 1, nome: "Lutador 1", pais: "Brasil", sexo: "Masculino" },
-    { id: 2, nome: "Lutador 2", pais: "EUA", sexo: "Masculino" },
-    { id: 3, nome: "Lutador 3", pais: "Rússia", sexo: "Masculino" },
-    { id: 4, nome: "Lutador 4", pais: "Brasil", sexo: "Feminino" },
-    { id: 5, nome: "Lutador 5", pais: "México", sexo: "Masculino" },
-    { id: 6, nome: "Lutador 6", pais: "Nigéria", sexo: "Masculino" },
-    { id: 7, nome: "Lutador 7", pais: "EUA", sexo: "Feminino" },
-    { id: 8, nome: "Lutador 8", pais: "Brasil", sexo: "Masculino" },
-    { id: 9, nome: "Lutador 9", pais: "Rússia", sexo: "Feminino" },
-    { id: 10, nome: "Lutador 10", pais: "México", sexo: "Masculino" },
-    { id: 11, nome: "Lutador 11", pais: "Brasil", sexo: "Masculino" },
-    { id: 12, nome: "Lutador 12", pais: "EUA", sexo: "Feminino" },
-  ];
-
-  useEffect(() => {
-    const buscarLutadores = async () => {
-      setCarregando(true);
-      try {
-        // Tentamos buscar do backend com timeout de 3 segundos
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
-        try {
-          console.log("Buscando lutadores do backend...");
-          // Primeiro tentamos o endpoint oficial
-          const res = await fetch("http://localhost:3333/lutadores", { 
-            cache: "no-store",
-            signal: controller.signal,
-            // Forçando uma busca 100% nova, sem cache
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-            }
-          });
-          
-          clearTimeout(timeoutId);
-          
-          // Se conseguimos uma resposta e ela é válida
-          if (res.ok) {
-            const dadosDaApi = await res.json();
-            console.log("Dados de lutadores recebidos da API:", dadosDaApi);
-            
-            if (Array.isArray(dadosDaApi)) {
-              setLutadores(dadosDaApi);
-              setUsandoDadosExemplo(false);
-              
-              if (dadosDaApi.length === 0) {
-                console.log("API retornou array vazio de lutadores, sem lutadores para mostrar");
-              }
-            } else {
-              // Usar dados de exemplo se o backend retornar algo que não é um array
-              console.log("API não retornou um array válido de lutadores, usando dados de exemplo");
-              setLutadores(lutadoresExemplo);
-              setUsandoDadosExemplo(true);
-            }
-          } else {
-            // Erro na resposta da API
-            console.error("Erro na resposta da API de lutadores:", res.status, await res.text());
-            setLutadores(lutadoresExemplo);
-            setUsandoDadosExemplo(true);
-          }
-        } catch (fetchError) {
-          // Erro ao fazer a requisição
-          console.error("Erro ao fazer requisição para lutadores:", fetchError);
-          setLutadores(lutadoresExemplo);
-          setUsandoDadosExemplo(true);
-        }
-      } catch (error) {
-        console.error("Erro ao tentar buscar lutadores do backend:", error);
-        setLutadores(lutadoresExemplo);
-        setUsandoDadosExemplo(true);
-      } finally {
-        setCarregando(false);
-      }
-    };
-
-    buscarLutadores();
-  }, [atualizacaoForcada]); // Usar atualizacaoForcada como dependência para forçar atualizações
-
-  // Função global que pode ser chamada por outros componentes para forçar atualização
-  window.atualizarLutadores = () => {
-    setAtualizacaoForcada(prev => prev + 1);
-  };
-
-  if (carregando) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-lg">Carregando lutadores...</p>
-      </div>
-    );
+export default async function LutadoresPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  // Extrair parâmetros de busca
+  const nome = typeof searchParams.nome === 'string' ? searchParams.nome : undefined;
+  const pais = typeof searchParams.pais === 'string' ? searchParams.pais : undefined;
+  const sexo = typeof searchParams.sexo === 'string' ? searchParams.sexo : undefined;
+  
+  // Construir URL com parâmetros de busca
+  let apiUrl = buildApiUrl('lutadores');
+  
+  if (nome || pais || sexo) {
+    const params = new URLSearchParams();
+    if (nome) params.append('nome', nome);
+    if (pais) params.append('pais', pais);
+    if (sexo) params.append('sexo', sexo);
+    apiUrl += `?${params.toString()}`;
+  }
+  
+  let lutadores: Lutador[] = [];
+  let erro: string | null = null;
+  
+  try {
+    const res = await fetch(apiUrl, {
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Erro ao carregar lutadores: ${res.status}`);
+    }
+    
+    lutadores = await res.json();
+    
+    if (!Array.isArray(lutadores)) {
+      throw new Error('Resposta da API não retornou um array válido');
+    }
+  } catch (error) {
+    console.error("Erro ao buscar lutadores:", error);
+    erro = error instanceof Error ? error.message : 'Erro desconhecido';
+    // Não vamos usar dados de exemplo, vamos mostrar o erro
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">👊 Lutadores</h2>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Lutadores do UFC</h1>
+        <Link 
+          href="/lutadores/novo" 
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md"
+        >
+          Adicionar Lutador
+        </Link>
+      </div>
       
-      {usandoDadosExemplo && (
-        <div className="mb-4 p-3 bg-yellow-100 rounded border border-yellow-300">
-          <p className="text-yellow-800">
-            <strong>Nota:</strong> Mostrando dados de exemplo para demonstração.
-          </p>
+      {/* Formulário de busca */}
+      <div className="bg-white p-4 rounded-md shadow-sm mb-6">
+        <form className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="nome" className="block text-sm font-medium mb-1">Nome</label>
+            <input
+              type="text"
+              id="nome"
+              name="nome"
+              defaultValue={nome}
+              className="w-full px-3 py-2 border rounded-md"
+              placeholder="Nome do lutador"
+            />
+          </div>
+          <div>
+            <label htmlFor="pais" className="block text-sm font-medium mb-1">País</label>
+            <input
+              type="text"
+              id="pais"
+              name="pais"
+              defaultValue={pais}
+              className="w-full px-3 py-2 border rounded-md"
+              placeholder="País de origem"
+            />
+          </div>
+          <div>
+            <label htmlFor="sexo" className="block text-sm font-medium mb-1">Sexo</label>
+            <select
+              id="sexo"
+              name="sexo"
+              defaultValue={sexo}
+              className="w-full px-3 py-2 border rounded-md"
+            >
+              <option value="">Todos</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+            </select>
+          </div>
+          <div className="md:col-span-3 flex justify-end">
+            <button 
+              type="submit"
+              className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md"
+            >
+              Filtrar
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      {erro && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <p>Erro ao carregar lutadores: {erro}</p>
+          <p>Tente novamente mais tarde.</p>
         </div>
       )}
       
-      <ul className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {lutadores.map((lutador) => (
-          <li key={lutador.id} className="p-3 border rounded shadow-sm bg-white">
-            <strong>{lutador.nome}</strong>
-            <div className="text-sm text-gray-600">
-              {lutador.pais} — {lutador.sexo}
+      {lutadores.length === 0 && !erro ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">Nenhum lutador encontrado.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {lutadores.map((lutador) => (
+            <div key={lutador.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+              <h2 className="text-xl font-semibold">
+                {lutador.nome}
+                {lutador.apelido && <span className="text-gray-500 ml-2">"{lutador.apelido}"</span>}
+              </h2>
+              <div className="flex flex-wrap mt-2 gap-2">
+                <span className="px-2 py-1 bg-gray-100 text-sm rounded-full">{lutador.pais}</span>
+                <span className="px-2 py-1 bg-blue-100 text-sm rounded-full">{lutador.categoriaAtual}</span>
+                <span className="px-2 py-1 bg-purple-100 text-sm rounded-full">{lutador.sexo}</span>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  href={`/lutadores/${lutador.id}`}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Ver detalhes
+                </Link>
+              </div>
             </div>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
