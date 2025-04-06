@@ -66,11 +66,45 @@ export default function DashboardPage() {
 
         // Contagem de lutas
         let totalLutas = 0;
-        for (const evento of eventos) {
-          if (evento._count?.lutas) {
-            totalLutas += evento._count.lutas;
+
+        try {
+          // Obter contagem direta de lutas da API
+          const lutasCountRes = await fetch(buildApiUrl('lutas/count'), { cache: 'no-store' });
+          
+          if (lutasCountRes.ok) {
+            const { count } = await lutasCountRes.json();
+            console.log(`Contagem de lutas retornada pela API: ${count}`);
+            totalLutas = count;
+          } else {
+            console.log('API de contagem não retornou dados. Calculando manualmente...');
+            
+            // Se a API de contagem não estiver disponível, vamos contar das lutas dos eventos
+            for (const evento of eventos) {
+              if (evento._count?.lutas) {
+                totalLutas += evento._count.lutas;
+              }
+            }
+            
+            // Se ainda estiver zerado, tentamos buscar todas as lutas e contar
+            if (totalLutas === 0) {
+              console.log('Tentando obter todas as lutas para contagem manual');
+              try {
+                const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
+                if (lutasRes.ok) {
+                  const todasLutas = await lutasRes.json();
+                  totalLutas = todasLutas.length;
+                  console.log(`Contagem manual de lutas: ${totalLutas}`);
+                }
+              } catch (lutasError) {
+                console.error('Erro ao buscar todas as lutas:', lutasError);
+              }
+            }
           }
+        } catch (error) {
+          console.error('Erro ao contar lutas:', error);
         }
+
+        console.log(`Total final de lutas: ${totalLutas}`);
 
         // Conjunto de categorias ativas no ranking
         const categorias = new Set<string>();
