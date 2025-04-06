@@ -279,11 +279,24 @@ export default function EventoDetalhesPage({ params }: PageProps) {
                     )}
                   </div>
                   
-                  {(luta.resultado?.bonusLuta || luta.resultado?.bonusPerformance) && (
-                    <div className="text-sm bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                      {luta.resultado.bonusLuta ? 'Luta da Noite' : 'Performance da Noite'}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {(luta.resultado?.bonusLuta || luta.resultado?.bonusPerformance) && (
+                      <div className="text-sm bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                        {luta.resultado.bonusLuta && luta.resultado.bonusPerformance 
+                          ? 'Luta da Noite + Performance da Noite' 
+                          : luta.resultado.bonusLuta 
+                            ? 'Luta da Noite' 
+                            : 'Performance da Noite'}
+                      </div>
+                    )}
+                    
+                    <Link 
+                      href={`/eventos/${evento.id}/lutas/${luta.id}/editar`}
+                      className="text-blue-600 hover:text-blue-800 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50 text-sm"
+                    >
+                      Editar
+                    </Link>
+                  </div>
                 </div>
                 
                 <div className="text-sm text-gray-600">

@@ -15,6 +15,26 @@ interface Evento {
   nome: string;
 }
 
+interface InfoRanking {
+  lutador: {
+    id: number;
+    nome: string;
+    categoriaAtual: string;
+  };
+  ranking: {
+    pesoPorPeso: number | null;
+    categoria: {
+      nome: string;
+      posicao: number;
+    } | null;
+  };
+  sequencia: {
+    tipo: string;
+    quantidade: number;
+    descricao: string;
+  };
+}
+
 interface FormData {
   categoria: string;
   lutador1Id: number;
@@ -29,6 +49,10 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutadores, setLutadores] = useState<Lutador[]>([]);
+  const [infoLutador1, setInfoLutador1] = useState<InfoRanking | null>(null);
+  const [infoLutador2, setInfoLutador2] = useState<InfoRanking | null>(null);
+  const [carregandoInfo1, setCarregandoInfo1] = useState(false);
+  const [carregandoInfo2, setCarregandoInfo2] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     categoria: '',

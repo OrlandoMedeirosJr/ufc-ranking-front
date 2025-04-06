@@ -1,20 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 interface Lutador {
   id: number;
   nome: string;
   pais: string;
   sexo: string;
-  categoriaAtual?: string;
-}
-
-// Tipagem para window com a propriedade personalizada
-declare global {
-  interface Window {
-    atualizarLutadores?: () => void;
-  }
 }
 
 export default function LutadoresPage() {
@@ -22,12 +14,6 @@ export default function LutadoresPage() {
   const [usandoDadosExemplo, setUsandoDadosExemplo] = useState(true);
   const [carregando, setCarregando] = useState(true);
   const [atualizacaoForcada, setAtualizacaoForcada] = useState(0);
-
-  // Função de atualização que será exposta globalmente
-  const forcarAtualizacao = useCallback(() => {
-    console.log('Forçando atualização da lista de lutadores');
-    setAtualizacaoForcada(prev => prev + 1);
-  }, []);
 
   // Dados de exemplo para fallback
   const lutadoresExemplo: Lutador[] = [
@@ -45,14 +31,8 @@ export default function LutadoresPage() {
     { id: 12, nome: "Lutador 12", pais: "EUA", sexo: "Feminino" },
   ];
 
-  // Buscar lutadores quando o componente montar ou quando forçar atualização
   useEffect(() => {
-    console.log("Iniciando busca de lutadores...");
-    let isMounted = true; // Flag para verificar se o componente ainda está montado
-    
     const buscarLutadores = async () => {
-      if (!isMounted) return; // Evitar chamadas se o componente foi desmontado
-      
       setCarregando(true);
       try {
         // Tentamos buscar do backend com timeout de 3 segundos
@@ -80,73 +60,47 @@ export default function LutadoresPage() {
             const dadosDaApi = await res.json();
             console.log("Dados de lutadores recebidos da API:", dadosDaApi);
             
-            if (isMounted) { // Verificar novamente se o componente ainda está montado
-              if (Array.isArray(dadosDaApi)) {
-                setLutadores(dadosDaApi);
-                setUsandoDadosExemplo(false);
-                
-                if (dadosDaApi.length === 0) {
-                  console.log("API retornou array vazio de lutadores, sem lutadores para mostrar");
-                }
-              } else {
-                // Usar dados de exemplo se o backend retornar algo que não é um array
-                console.log("API não retornou um array válido de lutadores, usando dados de exemplo");
-                setLutadores(lutadoresExemplo);
-                setUsandoDadosExemplo(true);
+            if (Array.isArray(dadosDaApi)) {
+              setLutadores(dadosDaApi);
+              setUsandoDadosExemplo(false);
+              
+              if (dadosDaApi.length === 0) {
+                console.log("API retornou array vazio de lutadores, sem lutadores para mostrar");
               }
+            } else {
+              // Usar dados de exemplo se o backend retornar algo que não é um array
+              console.log("API não retornou um array válido de lutadores, usando dados de exemplo");
+              setLutadores(lutadoresExemplo);
+              setUsandoDadosExemplo(true);
             }
           } else {
             // Erro na resposta da API
             console.error("Erro na resposta da API de lutadores:", res.status, await res.text());
-            if (isMounted) {
-              setLutadores(lutadoresExemplo);
-              setUsandoDadosExemplo(true);
-            }
+            setLutadores(lutadoresExemplo);
+            setUsandoDadosExemplo(true);
           }
         } catch (fetchError) {
           // Erro ao fazer a requisição
           console.error("Erro ao fazer requisição para lutadores:", fetchError);
-          if (isMounted) {
-            setLutadores(lutadoresExemplo);
-            setUsandoDadosExemplo(true);
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao tentar buscar lutadores do backend:", error);
-        if (isMounted) {
           setLutadores(lutadoresExemplo);
           setUsandoDadosExemplo(true);
         }
+      } catch (error) {
+        console.error("Erro ao tentar buscar lutadores do backend:", error);
+        setLutadores(lutadoresExemplo);
+        setUsandoDadosExemplo(true);
       } finally {
-        if (isMounted) {
-          setCarregando(false);
-          console.log("Busca de lutadores finalizada");
-        }
+        setCarregando(false);
       }
     };
 
     buscarLutadores();
-    
-    // Cleanup function para evitar memory leaks
-    return () => {
-      isMounted = false;
-    };
-  }, [atualizacaoForcada]); // Remover lutadoresExemplo das dependências
+  }, [atualizacaoForcada]); // Usar atualizacaoForcada como dependência para forçar atualizações
 
-  // Definir a função global apenas no lado do cliente
-  useEffect(() => {
-    // Garantir que estamos no navegador antes de acessar window
-    if (typeof window !== 'undefined') {
-      window.atualizarLutadores = forcarAtualizacao;
-      
-      // Limpeza quando o componente é desmontado
-      return () => {
-        if (window.atualizarLutadores === forcarAtualizacao) {
-          delete window.atualizarLutadores;
-        }
-      };
-    }
-  }, [forcarAtualizacao]); // Dependência na função de atualização
+  // Função global que pode ser chamada por outros componentes para forçar atualização
+  window.atualizarLutadores = () => {
+    setAtualizacaoForcada(prev => prev + 1);
+  };
 
   if (carregando) {
     return (
@@ -175,11 +129,6 @@ export default function LutadoresPage() {
             <div className="text-sm text-gray-600">
               {lutador.pais} — {lutador.sexo}
             </div>
-            {lutador.categoriaAtual && (
-              <div className="text-xs text-gray-500 mt-1">
-                Categoria: {lutador.categoriaAtual}
-              </div>
-            )}
           </li>
         ))}
       </ul>

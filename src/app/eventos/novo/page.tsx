@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Modal from 'react-modal';
@@ -12,6 +12,8 @@ export default function NovoEventoPage() {
   const [error, setError] = useState<string | null>(null);
   const [lutadoresCadastrados, setLutadoresCadastrados] = useState<string[]>([]);
   const [lutadorEmVerificacao, setLutadorEmVerificacao] = useState<{nome: string, index: number, campo: 'lutador1' | 'lutador2'} | null>(null);
+  const verificacaoTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const [camposEmVerificacao, setCamposEmVerificacao] = useState<Record<string, boolean>>({});
 
   // Configurar o Modal após a montagem do componente
   useEffect(() => {
@@ -37,6 +39,14 @@ export default function NovoEventoPage() {
     };
     
     carregarLutadores();
+    
+    // Cleanup function para limpar todos os timers quando o componente desmontar
+    return () => {
+      // Limpar todos os timers pendentes
+      Object.values(verificacaoTimers.current).forEach(timer => {
+        clearTimeout(timer);
+      });
+    };
   }, []);
 
   const [formData, setFormData] = useState({
@@ -47,7 +57,8 @@ export default function NovoEventoPage() {
     finalizado: false,
     publicoTotal: '',
     arrecadacao: '',
-    payPerView: ''
+    payPerView: '',
+    organizacao: 'UFC'
   });
 
   const [lutas, setLutas] = useState<Luta[]>([{ 
@@ -83,12 +94,27 @@ export default function NovoEventoPage() {
       return newLutas;
     });
     
-    // Verificar se o campo alterado é de um lutador e se ele foi preenchido completamente
-    if ((name === 'lutador1' || name === 'lutador2') && value.trim() !== '') {
-      // Usando setTimeout para verificar o lutador após o usuário terminar de digitar
-      setTimeout(() => {
-        verificarLutador(value.trim(), index, name as 'lutador1' | 'lutador2');
-      }, 1000);
+    // Verificar se o campo alterado é de um lutador e se ele foi preenchido com pelo menos 3 caracteres
+    if ((name === 'lutador1' || name === 'lutador2')) {
+      // Cancelar qualquer verificação pendente para este input específico
+      const timerKey = `${index}-${name}`;
+      if (verificacaoTimers.current[timerKey]) {
+        clearTimeout(verificacaoTimers.current[timerKey]);
+        setCamposEmVerificacao(prev => ({ ...prev, [timerKey]: false }));
+      }
+      
+      // Iniciar nova verificação apenas se o valor tiver pelo menos 3 caracteres
+      if (value.trim().length >= 3) {
+        // Mostrar indicador de verificação
+        setCamposEmVerificacao(prev => ({ ...prev, [timerKey]: true }));
+        
+        verificacaoTimers.current[timerKey] = setTimeout(() => {
+          verificarLutador(value.trim(), index, name as 'lutador1' | 'lutador2');
+          // Limpar a referência após executar
+          delete verificacaoTimers.current[timerKey];
+          setCamposEmVerificacao(prev => ({ ...prev, [timerKey]: false }));
+        }, 1500); // Aumentado para 1.5 segundos para dar mais tempo ao usuário
+      }
     }
   };
 
@@ -98,8 +124,9 @@ export default function NovoEventoPage() {
       lutadorNome => lutadorNome === nome.toLowerCase().trim()
     );
     
-    if (!lutadorJaCadastrado) {
-      // Se não estiver cadastrado, preparar para abrir o modal
+    // Apenas mostrar o modal se o nome não estiver cadastrado e tiver pelo menos 3 caracteres
+    if (!lutadorJaCadastrado && nome.trim().length >= 3) {
+      // Verificar se já não está digitando outro nome (evita interrupções frequentes)
       setNovoLutador({
         nome: nome,
         pais: '',
@@ -580,21 +607,20 @@ export default function NovoEventoPage() {
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Lutas do Evento</h3>
-            <button 
-              type="button" 
-              onClick={adicionarLuta} 
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Lutas do Evento</h3>
+            <button
+              type="button"
+              onClick={adicionarLuta}
+              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm flex items-center"
             >
-              + Adicionar Luta
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Adicionar Luta
             </button>
           </div>
-          
-          {lutas.length === 0 && (
-            <p className="text-gray-500 italic">Nenhuma luta cadastrada. Clique em "Adicionar Luta" para começar.</p>
-          )}
           
           <div className="lutas-section">
             {lutas.map((luta, index) => (
@@ -604,6 +630,7 @@ export default function NovoEventoPage() {
                 index={index}
                 onChange={handleLutaChange}
                 onRemove={removerLuta}
+                camposEmVerificacao={camposEmVerificacao}
               />
             ))}
           </div>
