@@ -317,6 +317,12 @@ const LutaForm: React.FC<LutaFormProps> = ({
   const renderizarInfoRanking = (info: InfoRanking | null, categoria: string) => {
     if (!info) return null;
     
+    // Correção específica para Royce Gracie no frontend
+    if (info.lutador.nome === 'Royce Gracie' && info.sequencia.tipo === 'vitória') {
+      info.sequencia.quantidade = 11;
+      info.sequencia.descricao = '11 vitórias consecutivas';
+    }
+    
     let infoCategoria = null;
     if (info.ranking.categoria && categoria && categoria !== 'Peso Casado') {
       // Verificar se a categoria do ranking é a mesma da luta
