@@ -257,6 +257,49 @@ export default function EventoDetalhesPage({ params }: PageProps) {
         </div>
       </div>
 
+      {evento.finalizado && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+          <h2 className="text-xl font-bold mb-3">Estatísticas do Evento</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {evento.publicoTotal ? (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Público Total</div>
+                <div className="text-xl font-bold">{formatarNumero(evento.publicoTotal)}</div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Público Total</div>
+                <div className="text-xl font-medium text-gray-400">Não disponível</div>
+              </div>
+            )}
+            
+            {evento.arrecadacao ? (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Arrecadação</div>
+                <div className="text-xl font-bold">{formatarDinheiro(evento.arrecadacao)}</div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Arrecadação</div>
+                <div className="text-xl font-medium text-gray-400">Não disponível</div>
+              </div>
+            )}
+            
+            {evento.payPerView ? (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Vendas Pay-Per-View</div>
+                <div className="text-xl font-bold">{formatarNumero(evento.payPerView)}</div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white rounded-md shadow-sm">
+                <div className="text-gray-500 text-sm mb-1">Vendas Pay-Per-View</div>
+                <div className="text-xl font-medium text-gray-400">Não disponível</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-4">
           Card de Lutas

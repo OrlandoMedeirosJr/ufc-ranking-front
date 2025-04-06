@@ -242,6 +242,21 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
       if (formData.pais) {
         eventoAtualizado.pais = formData.pais;
       }
+      
+      // Adicionar estatísticas se o evento estiver finalizado
+      if (formData.finalizado) {
+        if (formData.publicoTotal) {
+          eventoAtualizado.publicoTotal = parseInt(formData.publicoTotal, 10);
+        }
+        
+        if (formData.arrecadacao) {
+          eventoAtualizado.arrecadacao = parseFloat(formData.arrecadacao);
+        }
+        
+        if (formData.payPerView) {
+          eventoAtualizado.payPerView = parseInt(formData.payPerView, 10);
+        }
+      }
 
       // Processar lutas para adicioná-las ao evento
       const lutasProcessadas = lutas
@@ -500,72 +515,73 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
           </select>
         </div>
 
-        <div className="mb-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              name="finalizado"
-              checked={formData.finalizado}
-              onChange={handleChange}
-              className="mr-2"
-            />
-            <span>Evento Finalizado</span>
+        <div className="mb-4 flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="finalizado"
+            name="finalizado"
+            checked={formData.finalizado}
+            onChange={handleChange}
+            className="w-4 h-4"
+          />
+          <label className="font-medium" htmlFor="finalizado">
+            Evento finalizado
           </label>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block mb-2 font-medium" htmlFor="publicoTotal">
-              Público Total
-            </label>
-            <input
-              type="number"
-              id="publicoTotal"
-              name="publicoTotal"
-              value={formData.publicoTotal}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              placeholder="Ex: 20000"
-              min="0"
-            />
-            <p className="text-xs text-gray-500 mt-1">Dados estatísticos (não disponíveis no backend)</p>
+
+        {formData.finalizado && (
+          <div className="mb-6 p-4 bg-gray-50 rounded border">
+            <h3 className="text-lg font-bold mb-3">Estatísticas do Evento</h3>
+            <p className="text-sm text-gray-500 mb-3">Preencha os dados de estatísticas do evento após sua realização.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block mb-2 font-medium" htmlFor="publicoTotal">
+                  Público Total
+                </label>
+                <input
+                  type="number"
+                  id="publicoTotal"
+                  name="publicoTotal"
+                  value={formData.publicoTotal}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                  placeholder="Ex: 18500"
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-2 font-medium" htmlFor="arrecadacao">
+                  Arrecadação (USD)
+                </label>
+                <input
+                  type="number"
+                  id="arrecadacao"
+                  name="arrecadacao"
+                  value={formData.arrecadacao}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                  placeholder="Ex: 4500000"
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-2 font-medium" htmlFor="payPerView">
+                  Vendas Pay-Per-View
+                </label>
+                <input
+                  type="number"
+                  id="payPerView"
+                  name="payPerView"
+                  value={formData.payPerView}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded"
+                  placeholder="Ex: 750000"
+                />
+              </div>
+            </div>
           </div>
-          
-          <div>
-            <label className="block mb-2 font-medium" htmlFor="arrecadacao">
-              Arrecadação (USD)
-            </label>
-            <input
-              type="number"
-              id="arrecadacao"
-              name="arrecadacao"
-              value={formData.arrecadacao}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              placeholder="Ex: 9000000"
-              min="0"
-              step="0.01"
-            />
-            <p className="text-xs text-gray-500 mt-1">Dados estatísticos (não disponíveis no backend)</p>
-          </div>
-          
-          <div>
-            <label className="block mb-2 font-medium" htmlFor="payPerView">
-              Pay-per-view (vendas)
-            </label>
-            <input
-              type="number"
-              id="payPerView"
-              name="payPerView"
-              value={formData.payPerView}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              placeholder="Ex: 800000"
-              min="0"
-            />
-            <p className="text-xs text-gray-500 mt-1">Dados estatísticos (não disponíveis no backend)</p>
-          </div>
-        </div>
+        )}
 
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
