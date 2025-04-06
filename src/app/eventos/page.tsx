@@ -49,18 +49,71 @@ export default function EventosPage() {
           queryParams += `${separador}nome=${encodeURIComponent(termoBusca.trim())}`;
         }
         
-        const response = await fetch(buildApiUrl(`eventos${queryParams}`), {
+        // URL direta para a API de eventos
+        const url = `http://localhost:3334/eventos${queryParams}`;
+        console.log(`Buscando eventos diretamente: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
         });
         
         if (!response.ok) {
+          console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
           throw new Error(`Erro ao buscar eventos: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log(`Eventos carregados com sucesso: ${data.length} eventos`);
         setEventos(data);
       } catch (error) {
         console.error('Erro ao carregar eventos:', error);
+        
+        // Tentar recuperar dados de outra maneira se a primeira tentativa falhar
+        try {
+          console.log('Tentando abordagem alternativa para buscar eventos...');
+          const fallbackUrl = `http://localhost:3334/eventos${filtro === 'finalizados' ? '?finalizado=true' : filtro === 'agendados' ? '?finalizado=false' : ''}`;
+          
+          const fallbackResponse = await fetch(fallbackUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            console.log(`Recuperação bem-sucedida: ${fallbackData.length} eventos carregados via fallback`);
+            
+            // Se estiver buscando, filtre manualmente
+            if (termoBusca.trim()) {
+              const termoBuscaLower = termoBusca.trim().toLowerCase();
+              const eventosFiltrados = fallbackData.filter(
+                (evento: Evento) => evento.nome.toLowerCase().includes(termoBuscaLower)
+              );
+              setEventos(eventosFiltrados);
+              console.log(`Filtrado para ${eventosFiltrados.length} eventos que correspondem à busca: "${termoBusca}"`);
+            } else {
+              setEventos(fallbackData);
+            }
+          } else {
+            console.error('Falha também na abordagem alternativa');
+            setEventos([]);
+          }
+        } catch (fallbackError) {
+          console.error('Erro na abordagem alternativa:', fallbackError);
+          setEventos([]);
+        }
       } finally {
         setLoading(false);
         setBuscando(false);
@@ -68,7 +121,7 @@ export default function EventosPage() {
     };
     
     carregarEventos();
-  }, [filtro, buscando]);
+  }, [filtro, buscando, termoBusca]);
 
   const handleBuscar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +255,7 @@ export default function EventosPage() {
                   lutas={evento._count?.lutas}
                   publicoTotal={evento.publicoTotal || undefined}
                   arrecadacao={evento.arrecadacao || undefined}
+                  payPerView={evento.payPerView || undefined}
                 />
               ))}
             </div>

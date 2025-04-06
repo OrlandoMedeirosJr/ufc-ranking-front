@@ -7,7 +7,6 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { toast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Loader2, Download, Upload, AlertTriangle } from "lucide-react";
-import { buildApiUrl } from "@/config/api";
 import { 
   Dialog, 
   DialogContent, 
@@ -42,13 +41,28 @@ export default function AdminPage() {
   const handleBackup = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(buildApiUrl('backup'));
+      // URL direta para a API
+      const url = 'http://localhost:3334/backup';
+      console.log(`Realizando backup diretamente: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit'
+      });
       
       if (!response.ok) {
-        throw new Error('Falha ao realizar backup');
+        console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
+        throw new Error(`Falha ao realizar backup: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('Backup realizado com sucesso:', data);
       
       toast({
         title: "Backup realizado com sucesso!",
@@ -58,6 +72,7 @@ export default function AdminPage() {
       // Atualizar a lista de backups após criar um novo
       fetchBackups();
     } catch (error) {
+      console.error('Erro ao realizar backup:', error);
       toast({
         title: "Erro ao realizar backup",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -71,14 +86,19 @@ export default function AdminPage() {
   const handleExportJSON = async () => {
     setIsExporting(true);
     try {
+      // URL direta para a API de exportação
+      const url = 'http://localhost:3334/backup/exportar';
+      console.log(`Exportando JSON diretamente: ${url}`);
+      
       // Redirecionar para o endpoint de exportação
-      window.location.href = buildApiUrl('backup/exportar');
+      window.location.href = url;
       
       toast({
         title: "Exportação iniciada",
         description: "O download do arquivo JSON deve começar automaticamente",
       });
     } catch (error) {
+      console.error('Erro ao exportar dados:', error);
       toast({
         title: "Erro ao exportar dados",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -128,20 +148,28 @@ export default function AdminPage() {
     
     setIsImporting(true);
     try {
+      // URL direta para a API de importação
+      const url = 'http://localhost:3334/backup/importar';
+      console.log(`Importando JSON diretamente: ${url}`);
+      
       const formData = new FormData();
       formData.append('arquivo', selectedFile);
       
-      const response = await fetch(buildApiUrl('backup/importar'), {
+      const response = await fetch(url, {
         method: 'POST',
         body: formData,
+        mode: 'cors',
+        credentials: 'omit'
       });
       
       if (!response.ok) {
+        console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Falha ao importar dados');
+        throw new Error(errorData.message || `Falha ao importar dados: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('Importação concluída com sucesso:', data);
       
       // Limpar o arquivo selecionado e o input
       setSelectedFile(null);
@@ -154,6 +182,7 @@ export default function AdminPage() {
         description: `Importados: ${data.detalhes.lutadores} lutadores, ${data.detalhes.eventos} eventos, ${data.detalhes.lutas} lutas`,
       });
     } catch (error) {
+      console.error('Erro ao importar dados:', error);
       toast({
         title: "Erro ao importar dados",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -166,16 +195,32 @@ export default function AdminPage() {
 
   const fetchBackups = async () => {
     try {
-      const response = await fetch(buildApiUrl('backup/list'));
+      // URL direta para a API de listagem de backups
+      const url = 'http://localhost:3334/backup/list';
+      console.log(`Buscando lista de backups diretamente: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit'
+      });
       
       if (!response.ok) {
-        throw new Error('Falha ao listar backups');
+        console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
+        throw new Error(`Falha ao listar backups: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log(`Backups carregados com sucesso: ${data.backups.length}`);
       setBackups(data.backups);
       setBackupsLoaded(true);
     } catch (error) {
+      console.error('Erro ao listar backups:', error);
       toast({
         title: "Erro ao listar backups",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -185,7 +230,10 @@ export default function AdminPage() {
   };
 
   const downloadBackup = (filename: string) => {
-    window.open(buildApiUrl(`backup/download/${filename}`), '_blank');
+    // URL direta para a API de download de backup
+    const url = `http://localhost:3334/backup/download/${filename}`;
+    console.log(`Baixando backup diretamente: ${url}`);
+    window.open(url, '_blank');
   };
 
   const formatDate = (dateString: string) => {

@@ -45,19 +45,32 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // Obter estatísticas centralizadas do endpoint específico do dashboard
+        // Obter estatísticas do dashboard - abordagem direta sem funções intermediárias
         try {
-          const dashboardStatsRes = await fetch(buildApiUrl('dashboard/estatisticas'), { cache: 'no-store' });
+          // URL direta para o endpoint
+          const urlDireta = 'http://localhost:3334/dashboard/estatisticas';
+          console.log(`Tentando obter estatísticas do dashboard diretamente: ${urlDireta}`);
+          
+          const dashboardStatsRes = await fetch(urlDireta, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
           
           if (!dashboardStatsRes.ok) {
-            console.error(`Erro na API dashboard/estatisticas: ${dashboardStatsRes.status} - ${await dashboardStatsRes.text()}`);
+            console.error(`Erro na API dashboard/estatisticas: ${dashboardStatsRes.status}`);
             // Continuar sem essa API, vamos usar o fallback
           } else {
-            // Obter estatísticas do dashboard do novo endpoint
+            // Obter estatísticas do dashboard
             const dashboardStats = await dashboardStatsRes.json();
-            console.log('Estatísticas obtidas do endpoint centralizado:', dashboardStats);
+            console.log('Estatísticas obtidas do endpoint:', dashboardStats);
             
-            // Se temos dados do endpoint centralizado, usamos eles
+            // Atualizar estado com estatísticas do dashboard
             if (dashboardStats) {
               setEstatisticas({
                 totalLutadores: dashboardStats.totalLutadores || 0,
@@ -66,43 +79,87 @@ export default function DashboardPage() {
                 totalCategorias: dashboardStats.totalCategorias || 0,
               });
               
-              console.log('Estatísticas do dashboard atualizadas com dados centralizados');
+              console.log('Estatísticas do dashboard atualizadas com dados');
             }
           }
         } catch (dashboardError) {
-          console.error('Erro ao obter estatísticas centralizadas:', dashboardError);
+          console.error('Erro ao obter estatísticas do dashboard:', dashboardError);
           // Continuar sem essa API, vamos usar o fallback
         }
 
-        // Obter eventos e recordes em paralelo
-        const [
-          eventosRes,
-          recordesRes
-        ] = await Promise.all([
-          fetch(buildApiUrl('eventos?finalizado=true'), { cache: 'no-store' }),
-          fetch(buildApiUrl('recordes'), { cache: 'no-store' })
-        ]);
-
-        if (!eventosRes.ok) {
-          console.error(`Erro na API eventos: ${eventosRes.status} - ${await eventosRes.text()}`);
-          throw new Error('Erro ao carregar eventos');
-        }
-
-        if (!recordesRes.ok) {
-          console.error(`Erro na API recordes: ${recordesRes.status} - ${await recordesRes.text()}`);
-          throw new Error('Erro ao carregar recordes');
-        }
-
-        const eventos = await eventosRes.json();
-        const recordesData = await recordesRes.json();
-
-        // Se não temos dados do endpoint centralizado, usamos o método antigo (fallback)
-        // Contagem de lutas
-        let totalLutas = 0;
-
+        // Obter eventos - abordagem direta 
+        let eventos = [];
         try {
-          // Obter contagem direta de lutas da API
-          const lutasCountRes = await fetch(buildApiUrl('lutas/count'), { cache: 'no-store' });
+          // URL direta para eventos
+          const eventosUrl = 'http://localhost:3334/eventos?finalizado=true';
+          console.log(`Tentando obter eventos diretamente: ${eventosUrl}`);
+          
+          const eventosRes = await fetch(eventosUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (eventosRes.ok) {
+            eventos = await eventosRes.json();
+            console.log(`Obtidos ${eventos.length} eventos`);
+          } else {
+            console.error(`Erro na API eventos: ${eventosRes.status}`);
+          }
+        } catch (eventosError) {
+          console.error('Erro ao obter eventos:', eventosError);
+        }
+        
+        // Obter recordes - abordagem direta
+        let recordesData = [];
+        try {
+          // URL direta para recordes
+          const recordesUrl = 'http://localhost:3334/recordes';
+          console.log(`Tentando obter recordes diretamente: ${recordesUrl}`);
+          
+          const recordesRes = await fetch(recordesUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (recordesRes.ok) {
+            recordesData = await recordesRes.json();
+            console.log(`Obtidos ${recordesData.length} recordes`);
+          } else {
+            console.error(`Erro na API recordes: ${recordesRes.status}`);
+          }
+        } catch (recordesError) {
+          console.error('Erro ao obter recordes:', recordesError);
+        }
+
+        // Contagem de lutas - abordagem direta
+        let totalLutas = 0;
+        try {
+          // URL direta para contagem de lutas
+          const countUrl = 'http://localhost:3334/lutas/count';
+          console.log(`Tentando obter contagem de lutas diretamente: ${countUrl}`);
+          
+          const lutasCountRes = await fetch(countUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
           
           if (lutasCountRes.ok) {
             const { count } = await lutasCountRes.json();
@@ -122,7 +179,20 @@ export default function DashboardPage() {
             if (totalLutas === 0) {
               console.log('Tentando obter todas as lutas para contagem manual');
               try {
-                const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
+                const lutasUrl = 'http://localhost:3334/lutas';
+                console.log(`Buscando lutas diretamente: ${lutasUrl}`);
+                
+                const lutasRes = await fetch(lutasUrl, {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  },
+                  cache: 'no-store',
+                  mode: 'cors',
+                  credentials: 'omit'
+                });
+                
                 if (lutasRes.ok) {
                   const todasLutas = await lutasRes.json();
                   totalLutas = todasLutas.length;
@@ -139,10 +209,22 @@ export default function DashboardPage() {
 
         console.log(`Total final de lutas: ${totalLutas}`);
 
-        // Se não temos dados do endpoint centralizado, usamos o método antigo (fallback)
-        // Obter informações de lutadores para contagem de categorias
+        // Obter lutadores para contagem de categorias - abordagem direta
         try {
-          const lutadoresRes = await fetch(buildApiUrl('lutadores'), { cache: 'no-store' });
+          const lutadoresUrl = 'http://localhost:3334/lutadores';
+          console.log(`Buscando lutadores diretamente: ${lutadoresUrl}`);
+          
+          const lutadoresRes = await fetch(lutadoresUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
           if (lutadoresRes.ok) {
             const lutadores = await lutadoresRes.json();
             
@@ -167,12 +249,22 @@ export default function DashboardPage() {
           console.error('Erro ao buscar lutadores:', error);
         }
 
-        // Contagem de lutas por categoria
-        const lutasPorCategoriaTemp: Record<string, number> = {};
-        
+        // Contagem de lutas por categoria - abordagem direta
         try {
-          // Primeiro tentamos obter a contagem agregada do backend
-          const categoriaStatsRes = await fetch(buildApiUrl('lutas/categorias/contagem'), { cache: 'no-store' });
+          // URL direta para contagem por categoria
+          const categoriaUrl = 'http://localhost:3334/lutas/categorias/contagem';
+          console.log(`Buscando contagem por categoria diretamente: ${categoriaUrl}`);
+          
+          const categoriaStatsRes = await fetch(categoriaUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
           
           if (categoriaStatsRes.ok) {
             const categoriaStats = await categoriaStatsRes.json();
@@ -189,7 +281,19 @@ export default function DashboardPage() {
             
             // Se não conseguiu da API específica, vamos buscar todas as lutas e contar manualmente
             try {
-              const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
+              const lutasUrl = 'http://localhost:3334/lutas';
+              console.log(`Buscando lutas diretamente para contagem de categorias: ${lutasUrl}`);
+              
+              const lutasRes = await fetch(lutasUrl, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                cache: 'no-store',
+                mode: 'cors',
+                credentials: 'omit'
+              });
               
               if (lutasRes.ok) {
                 const todasLutas = await lutasRes.json();
@@ -230,22 +334,30 @@ export default function DashboardPage() {
         // Atualizar estatísticas gerais com a contagem correta de lutas
         setEstatisticas(prevState => ({
           ...prevState,
-          totalEventos: eventos.length,
+          totalEventos: eventos.length || 0,
           totalLutas: totalLutas || 0, // Garantir que nunca seja undefined
         }));
 
         console.log('Estatísticas finais atualizadas no dashboard:', {
-          totalLutadores: estatisticas.totalLutadores,
-          totalEventos: eventos.length,
+          totalLutadores: estatisticas.totalLutadores || 0,
+          totalEventos: eventos.length || 0,
           totalLutas: totalLutas || 0,
-          totalCategorias: estatisticas.totalCategorias,
+          totalCategorias: estatisticas.totalCategorias || 0,
         });
 
         // Atualizar últimos eventos (limitando a 3)
-        setUltimosEventos(eventos.slice(0, 3));
+        if (eventos && eventos.length > 0) {
+          setUltimosEventos(eventos.slice(0, 3));
+        } else {
+          setUltimosEventos([]);
+        }
 
         // Atualizar recordes
-        setRecordes(recordesData);
+        if (recordesData && recordesData.length > 0) {
+          setRecordes(recordesData);
+        } else {
+          setRecordes([]);
+        }
       } catch (error) {
         console.error('Erro ao buscar dados do dashboard:', error);
         // Continuar exibindo o que for possível

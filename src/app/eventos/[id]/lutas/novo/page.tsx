@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import React from 'react';
 
 interface Lutador {
   id: number;
@@ -43,6 +44,10 @@ interface FormData {
 }
 
 export default function NovaLutaPage({ params }: { params: { id: string } }) {
+  // Usar React.use para "unwrap" os parâmetros
+  const unwrappedParams = React.use(params);
+  const eventoId = unwrappedParams.id;
+  
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -107,7 +112,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 2000);
           
-          const resEvento = await fetch(`http://localhost:3333/eventos/${params.id}`, { 
+          const resEvento = await fetch(`http://localhost:3333/eventos/${eventoId}`, { 
             cache: "no-store",
             signal: controller.signal
           }).catch(() => null);
@@ -125,8 +130,8 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
         }
 
         // Se não encontrou na API, usar dados de exemplo
-        if (!eventoData && eventosExemplo[params.id]) {
-          eventoData = eventosExemplo[params.id];
+        if (!eventoData && eventosExemplo[eventoId]) {
+          eventoData = eventosExemplo[eventoId];
           console.warn("Usando dados de exemplo para o evento");
         }
 
@@ -175,7 +180,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
     };
 
     buscarDados();
-  }, [params.id]);
+  }, [eventoId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -203,7 +208,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
 
       const lutaData = {
         ...formData,
-        eventoId: parseInt(params.id),
+        eventoId: parseInt(eventoId),
         // Enviar resultado apenas se estiver preenchido
         resultado: formData.resultado || undefined
       };
@@ -222,7 +227,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
       }
 
       // Redirecionar para a página do evento
-      router.push(`/eventos/${params.id}`);
+      router.push(`/eventos/${eventoId}`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro ao criar a luta');
@@ -255,7 +260,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
   return (
     <div>
       <div className="flex items-center mb-6">
-        <Link href={`/eventos/${params.id}`} className="text-blue-600 hover:text-blue-800 mr-2">
+        <Link href={`/eventos/${eventoId}`} className="text-blue-600 hover:text-blue-800 mr-2">
           ← Voltar para o evento
         </Link>
         <h2 className="text-2xl font-bold">Adicionar Nova Luta</h2>
@@ -371,7 +376,7 @@ export default function NovaLutaPage({ params }: { params: { id: string } }) {
           </button>
           
           <Link
-            href={`/eventos/${params.id}`}
+            href={`/eventos/${eventoId}`}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
           >
             Cancelar

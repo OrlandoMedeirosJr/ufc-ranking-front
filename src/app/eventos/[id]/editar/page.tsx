@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Modal from 'react-modal';
 import React from 'react';
 import LutaForm, { Luta } from '@/components/LutaForm';
+import { buildApiUrl } from '@/config/api';
 
 interface Evento {
   id: number;
@@ -20,9 +21,9 @@ interface Evento {
   payPerView?: number;
 }
 
-export default function EditarEventoPage({ params }: { params: { id: string } }) {
-  // Usar React.use para "unwrap" os parâmetros
-  const unwrappedParams = React.use(params);
+export default async function EditarEventoPage({ params }: { params: { id: string } }) {
+  // Usar await para "unwrap" os parâmetros, conforme exigido pelo Next.js 15
+  const unwrappedParams = await params;
   const id = unwrappedParams.id;
   
   const router = useRouter();
@@ -63,10 +64,8 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
         setLoading(true);
         setError(null);
         
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-        
-        // Carregar evento
-        const eventoResponse = await fetch(`${API_URL}/eventos/${id}`);
+        // Carregar evento - este endpoint já retorna as lutas dentro do objeto evento
+        const eventoResponse = await fetch(buildApiUrl(`eventos/${id}`));
         if (!eventoResponse.ok) {
           throw new Error(`Erro ao carregar evento: ${eventoResponse.status}`);
         }
@@ -86,14 +85,12 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
           payPerView: eventoData.payPerView?.toString() || ''
         });
         
-        // Carregar lutas do evento
-        const lutasResponse = await fetch(`${API_URL}/eventos/${id}/lutas`);
-        if (lutasResponse.ok) {
-          const lutasData = await lutasResponse.json();
-          setLutasOriginais(lutasData);
-          
-          // Converter para o formato da interface Luta
-          const lutasFormatadas = lutasData.map(luta => {
+        // Extrair lutas do objeto evento, já que não existe o endpoint /eventos/:id/lutas
+        const lutasDoEvento = eventoData.lutas || [];
+        setLutasOriginais(lutasDoEvento);
+        
+        // Converter para o formato da interface Luta
+        const lutasFormatadas = lutasDoEvento.map(luta => {
             const resultado = luta.resultado?.vencedor 
               ? luta.resultado.vencedor === 'lutadorA' ? 'V1' 
               : luta.resultado.vencedor === 'lutadorB' ? 'V2'
@@ -116,13 +113,12 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
               bonus: bonus,
               categoria: luta.categoria || 'Não definida'
             } as Luta;
-          });
-          
-          setLutas(lutasFormatadas);
-        }
+        });
+        
+        setLutas(lutasFormatadas);
         
         // Carregar lutadores cadastrados
-        const lutadoresResponse = await fetch(`${API_URL}/lutadores`);
+        const lutadoresResponse = await fetch(buildApiUrl('lutadores'));
         if (lutadoresResponse.ok) {
           const lutadoresData = await lutadoresResponse.json();
           const nomes = lutadoresData.map(lutador => lutador.nome.toLowerCase().trim());
@@ -306,12 +302,9 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
       // Adicionar lutas ao evento
       eventoAtualizado.lutas = lutasProcessadas;
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-      
-      // Enviar evento atualizado com todas as lutas
-      console.log('Atualizando evento com lutas:', JSON.stringify(eventoAtualizado));
-      
-      const eventoResponse = await fetch(`${API_URL}/eventos/${id}`, {
+      // Atualizar evento
+      const API_URL = buildApiUrl(`eventos/${id}`);
+      const eventoRes = await fetch(API_URL, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -319,12 +312,8 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
         body: JSON.stringify(eventoAtualizado)
       });
 
-      if (!eventoResponse.ok) {
-        const text = await eventoResponse.text();
-        console.log('Erro ao atualizar evento:', text);
-        setError(`Falha ao atualizar evento: ${eventoResponse.status} ${eventoResponse.statusText}`);
-        setEnviando(false);
-        return;
+      if (!eventoRes.ok) {
+        throw new Error(`Erro ao atualizar evento: ${eventoRes.status}`);
       }
       
       console.log('Evento atualizado com sucesso');
@@ -332,9 +321,9 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
       // Sucesso! Redirecionar para a página do evento
       router.push(`/eventos/${id}`);
       router.refresh();
-    } catch (err) {
-      console.error('Erro:', err);
-      setError(`Erro: ${err.message}`);
+    } catch (error) {
+      console.error('Erro ao enviar formulário:', error);
+      setError(error.message);
       setEnviando(false);
     }
   };
@@ -352,22 +341,27 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
 
   const handleCadastrarLutador = async () => {
     try {
+      setEnviando(true);
+      
+      // Validação
       if (!novoLutador.nome || !novoLutador.pais) {
-        alert('Nome e país do lutador são obrigatórios.');
+        setError('Nome e país são obrigatórios');
         return;
       }
       
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-      const response = await fetch(`${API_URL}/lutadores`, {
+      // Enviar para o backend
+      const response = await fetch(buildApiUrl('lutadores'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(novoLutador),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(novoLutador)
       });
-
+      
       if (!response.ok) {
-        throw new Error('Erro ao cadastrar lutador');
+        throw new Error(`Erro ao cadastrar lutador: ${response.status}`);
       }
-
+      
       const data = await response.json();
       console.log('Lutador cadastrado:', data);
       
@@ -387,7 +381,10 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
       closeModal();
     } catch (error) {
       console.error('Erro ao cadastrar lutador:', error);
-      alert('Erro ao cadastrar lutador. Tente novamente.');
+      setError(error.message);
+    } finally {
+      setEnviando(false);
+      closeModal();
     }
   };
 

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Modal from 'react-modal';
 import LutaForm, { Luta } from '@/components/LutaForm';
-import { buildApiUrl, apiGet, apiPost } from '@/config/api';
 
 export default function NovoEventoPage() {
   const router = useRouter();
@@ -33,11 +32,19 @@ export default function NovoEventoPage() {
         try {
           console.log(`Tentativa ${tentativas + 1} de carregar lutadores...`);
           
-          const response = await apiGet('lutadores', {
+          // URL direta para a API
+          const url = 'http://localhost:3334/lutadores';
+          console.log(`Buscando lutadores diretamente: ${url}`);
+          
+          const response = await fetch(url, {
+            method: 'GET',
             headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
           });
           
           if (response.ok) {
@@ -48,7 +55,7 @@ export default function NovoEventoPage() {
             setLutadoresCadastrados(nomes);
             return; // Encerra o loop se bem-sucedido
           } else {
-            console.error(`Erro de resposta: ${response.status} ${response.statusText}`);
+            console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
           }
         } catch (error) {
           console.error('Erro ao carregar lutadores:', error);
@@ -161,12 +168,19 @@ export default function NovoEventoPage() {
     // Se não encontrado localmente, fazer uma verificação direta na API
     if (!lutadorJaCadastrado && nome.trim().length >= 3) {
       try {
-        console.log(`Verificando lutador na API: ${nome}`);
-        const response = await apiGet(`lutadores?nome=${encodeURIComponent(nome)}`, {
+        // URL direta para a API de lutadores com filtro por nome
+        const url = `http://localhost:3334/lutadores?nome=${encodeURIComponent(nome)}`;
+        console.log(`Verificando lutador na API: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'GET',
           headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
         });
         
         if (response.ok) {
@@ -185,6 +199,8 @@ export default function NovoEventoPage() {
             
             return; // O lutador existe, não precisa mostrar o modal
           }
+        } else {
+          console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
         }
       } catch (error) {
         console.error('Erro ao verificar lutador na API:', error);
@@ -230,152 +246,102 @@ export default function NovoEventoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    // Validação básica
-    if (!formData.nome) {
-      setError('O nome do evento é obrigatório');
-      setLoading(false);
+    
+    // Validar que o evento tenha pelo menos uma luta preenchida corretamente
+    const lutasPreenchidas = lutas.filter(luta => 
+      luta.lutador1.trim() !== '' && 
+      luta.lutador2.trim() !== '' && 
+      luta.categoria.trim() !== ''
+    );
+    
+    if (lutasPreenchidas.length === 0) {
+      setError('É necessário adicionar pelo menos uma luta válida com ambos os lutadores e categoria preenchidos.');
       return;
     }
-
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      // 1. Primeiro, criar apenas o evento básico (sem lutas)
-      const eventoBasico = {
-        nome: formData.nome,
-        finalizado: false
+      // Formatar os dados para envio
+      const eventoData = {
+        ...formData,
+        publicoTotal: formData.publicoTotal ? parseInt(formData.publicoTotal) : null,
+        arrecadacao: formData.arrecadacao ? parseInt(formData.arrecadacao) : null,
+        payPerView: formData.payPerView ? parseInt(formData.payPerView) : null
       };
-
-      // Adicionar campos opcionais se estiverem preenchidos
-      if (formData.data) {
-        // Corrigir problema de timezone
-        // Pegar a data selecionada (YYYY-MM-DD) e criar uma data às 12:00 
-        // para evitar problemas de timezone
-        const [year, month, day] = formData.data.split('-').map(num => parseInt(num, 10));
-        const dataAjustada = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-        eventoBasico.data = dataAjustada.toISOString();
+      
+      console.log('Enviando dados do evento:', eventoData);
+      
+      try {
+        // URL direta para API
+        const url = 'http://localhost:3334/eventos';
+        console.log(`Enviando dados diretamente para: ${url}`);
         
-        console.log(`Data original: ${formData.data}`);
-        console.log(`Data ajustada: ${dataAjustada.toISOString()}`);
-      }
-
-      if (formData.local) {
-        eventoBasico.local = formData.local;
-      }
-
-      if (formData.pais) {
-        eventoBasico.pais = formData.pais;
-      }
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-      
-      console.log('Criando evento básico:', eventoBasico);
-      
-      // Criar o evento básico primeiro
-      const responseEvento = await fetch(`${API_URL}/eventos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventoBasico)
-      });
-
-      if (!responseEvento.ok) {
-        let mensagemErro = 'Erro ao criar evento';
-        try {
-          const errorData = await responseEvento.json();
-          mensagemErro = errorData.error || 'Erro desconhecido';
-          console.error('Erro ao criar evento:', errorData);
-        } catch {
-          console.error('Erro ao criar evento:', responseEvento.status, responseEvento.statusText);
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(eventoData),
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (!response.ok) {
+          console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
+          throw new Error(`Erro ao criar evento: ${response.status}`);
         }
-        setError(mensagemErro);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Se o evento foi criado com sucesso, obter o ID do evento
-      const eventoResponse = await responseEvento.json();
-      const eventoId = eventoResponse.evento?.id || eventoResponse.id;
-      
-      if (!eventoId) {
-        console.error('Resposta do servidor não contém ID do evento:', eventoResponse);
-        setError('Erro ao obter ID do evento criado');
-        setLoading(false);
-        return;
-      }
-      
-      console.log(`Evento criado com ID: ${eventoId}`);
-
-      // 3. Filtrar apenas lutas válidas para adicionar
-      const lutasValidas = lutas.filter(luta => luta.lutador1 && luta.lutador2);
-      
-      // 4. Adicionar cada luta individualmente
-      const lutasCriadas = [];
-      const errosLutas = [];
-      
-      if (lutasValidas.length > 0) {
-        console.log(`Adicionando ${lutasValidas.length} lutas ao evento ${eventoId}`);
         
-        for (const luta of lutasValidas) {
-          try {
-            // Adicionar a luta ao evento
-            const responseLuta = await fetch(`${API_URL}/eventos/${eventoId}/lutas`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(luta)
-            });
-            
-            if (responseLuta.ok) {
-              const lutaResponse = await responseLuta.json();
-              lutasCriadas.push(lutaResponse.luta);
-              console.log(`Luta adicionada com sucesso: ${lutasCriadas.length}/${lutasValidas.length}`);
-            } else {
-              const errorData = await responseLuta.json();
-              console.error('Erro ao adicionar luta:', errorData);
-              errosLutas.push({
-                luta: `${luta.lutador1} vs ${luta.lutador2}`, 
-                erro: errorData.error || 'Erro desconhecido'
-              });
-            }
-          } catch (error) {
-            console.error('Erro ao processar luta:', error);
-            errosLutas.push({
-              luta: `${luta.lutador1} vs ${luta.lutador2}`,
-              erro: error.message || 'Erro desconhecido'
-            });
-          }
+        const eventoSalvo = await response.json();
+        console.log('Evento criado com sucesso:', eventoSalvo);
+        
+        // Após criar o evento, adicionar as lutas ao evento
+        const eventoId = eventoSalvo.id;
+        
+        const lutasData = lutasPreenchidas.map(luta => ({
+          lutadorA: luta.lutador1,
+          lutadorB: luta.lutador2,
+          categoria: luta.categoria,
+          titulo: luta.titulo,
+          eventoId: eventoId
+        }));
+        
+        console.log(`Adicionando ${lutasData.length} lutas ao evento ${eventoId}`, lutasData);
+        
+        // URL direta para API de lutas
+        const lutasUrl = `http://localhost:3334/eventos/${eventoId}/lutas`;
+        console.log(`Enviando lutas diretamente para: ${lutasUrl}`);
+        
+        const lutasResponse = await fetch(lutasUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(lutasData),
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (!lutasResponse.ok) {
+          console.error(`Erro ao adicionar lutas: ${lutasResponse.status} - ${lutasResponse.statusText}`);
+          throw new Error(`Erro ao adicionar lutas: ${lutasResponse.status}`);
         }
-      }
-      
-      // 5. Verificar se todas as lutas foram adicionadas com sucesso
-      if (errosLutas.length > 0) {
-        // Algumas lutas falharam, mas o evento foi criado
-        const mensagemErro = `Evento criado, mas ${errosLutas.length} luta(s) não puderam ser adicionadas.\n\n` +
-          errosLutas.map(e => `- ${e.luta}: ${e.erro}`).join('\n');
         
-        setError(mensagemErro);
-        setLoading(false);
-        
-        // Mostrar botão para continuar mesmo com erro
-        if (confirm(`${mensagemErro}\n\nDeseja ir para a lista de eventos mesmo assim?`)) {
-          router.push('/eventos');
-          router.refresh();
-        }
-        return;
+        console.log('Lutas adicionadas com sucesso');
+        router.push('/eventos');
+      } catch (error) {
+        console.error('Erro ao criar evento:', error);
+        throw error;
       }
-      
-      // Sucesso completo - evento criado e todas as lutas adicionadas
-      console.log(`Evento criado com sucesso com ${lutasCriadas.length} lutas`);
-      router.push('/eventos');
-      router.refresh();
-
     } catch (error) {
-      console.error('Erro ao processar evento:', error);
-      setError(`Erro ao processar evento: ${error.message || 'Erro desconhecido'}`);
+      console.error('Erro ao processar a requisição:', error);
+      setError(`Falha ao criar evento: ${error.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -429,6 +395,64 @@ export default function NovoEventoPage() {
     } catch (error) {
       console.error('Erro ao cadastrar lutador:', error);
       alert('Erro ao cadastrar lutador. Tente novamente.');
+    }
+  };
+
+  const cadastrarNovoLutador = async () => {
+    if (!lutadorEmVerificacao) return;
+    
+    try {
+      setLoading(true);
+      console.log('Cadastrando novo lutador:', novoLutador);
+      
+      // URL direta para API de lutadores
+      const url = 'http://localhost:3334/lutadores';
+      console.log(`Enviando novo lutador diretamente para: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(novoLutador),
+        cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
+        throw new Error(`Erro ao cadastrar lutador: ${response.status}`);
+      }
+      
+      const lutadorSalvo = await response.json();
+      console.log('Lutador cadastrado com sucesso:', lutadorSalvo);
+      
+      // Adicionar à lista de lutadores conhecidos
+      setLutadoresCadastrados(prev => [...prev, lutadorSalvo.nome.toLowerCase().trim()]);
+      
+      // Atualizar o formulário com o nome do lutador recém-cadastrado
+      setLutas(prevLutas => {
+        const newLutas = [...prevLutas];
+        if (lutadorEmVerificacao) {
+          newLutas[lutadorEmVerificacao.index] = {
+            ...newLutas[lutadorEmVerificacao.index],
+            [lutadorEmVerificacao.campo]: lutadorSalvo.nome
+          };
+        }
+        return newLutas;
+      });
+      
+      // Fechar o modal e limpar estado
+      setModalIsOpen(false);
+      setNovoLutador({ nome: '', pais: '', sexo: 'Masculino' });
+      setLutadorEmVerificacao(null);
+    } catch (error) {
+      console.error('Erro ao cadastrar lutador:', error);
+      setError(`Falha ao cadastrar lutador: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 

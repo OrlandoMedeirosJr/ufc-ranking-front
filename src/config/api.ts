@@ -2,42 +2,42 @@
  * Configuração central da API para o frontend
  */
 
-// URL base da API do backend
-export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3334';
+// URL base da API do backend - definida explicitamente
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
 
 // Função auxiliar para construir URLs completas
 export const buildApiUrl = (path: string): string => {
-  try {
-    // Remover barras duplicadas caso path já comece com '/'
-    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-    return `${API_URL}/${cleanPath}`;
-  } catch (error) {
-    console.error('Erro ao construir URL da API:', error);
-    return `http://localhost:3334/${path}`;
-  }
+  // Remover barras duplicadas caso path já comece com '/'
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  return `${API_URL}/${cleanPath}`;
 };
 
-// Configurações padrão para requisições fetch
+// Configurações básicas para requisições fetch
 export const defaultFetchOptions = {
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
-  cache: 'no-store' as RequestCache,
   mode: 'cors' as RequestMode,
-  credentials: 'same-origin' as RequestCredentials,
-  next: { revalidate: 0 }
+  credentials: 'omit' as RequestCredentials,
+  cache: 'no-store' as RequestCache
 };
 
 // Função auxiliar para requisições GET
 export const apiGet = async (path: string, options = {}) => {
   try {
-    const response = await fetch(buildApiUrl(path), {
+    const url = buildApiUrl(path);
+    console.log(`[API] GET: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
       ...defaultFetchOptions,
-      ...options,
+      ...options
     });
+    
     return response;
   } catch (error) {
-    console.error(`Erro na requisição GET para ${path}:`, error);
+    console.error(`[API] Erro GET: ${error}`);
     throw error;
   }
 };
@@ -45,15 +45,19 @@ export const apiGet = async (path: string, options = {}) => {
 // Função auxiliar para requisições POST
 export const apiPost = async (path: string, data: any, options = {}) => {
   try {
-    const response = await fetch(buildApiUrl(path), {
-      ...defaultFetchOptions,
+    const url = buildApiUrl(path);
+    console.log(`[API] POST: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(data),
-      ...options,
+      ...defaultFetchOptions,
+      ...options
     });
+    
     return response;
   } catch (error) {
-    console.error(`Erro na requisição POST para ${path}:`, error);
+    console.error(`[API] Erro POST: ${error}`);
     throw error;
   }
 };
@@ -61,15 +65,19 @@ export const apiPost = async (path: string, data: any, options = {}) => {
 // Função auxiliar para requisições PUT
 export const apiPut = async (path: string, data: any, options = {}) => {
   try {
-    const response = await fetch(buildApiUrl(path), {
-      ...defaultFetchOptions,
+    const url = buildApiUrl(path);
+    console.log(`[API] PUT: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'PUT',
       body: JSON.stringify(data),
-      ...options,
+      ...defaultFetchOptions,
+      ...options
     });
+    
     return response;
   } catch (error) {
-    console.error(`Erro na requisição PUT para ${path}:`, error);
+    console.error(`[API] Erro PUT: ${error}`);
     throw error;
   }
 };
@@ -77,14 +85,18 @@ export const apiPut = async (path: string, data: any, options = {}) => {
 // Função auxiliar para requisições DELETE
 export const apiDelete = async (path: string, options = {}) => {
   try {
-    const response = await fetch(buildApiUrl(path), {
-      ...defaultFetchOptions,
+    const url = buildApiUrl(path);
+    console.log(`[API] DELETE: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'DELETE',
-      ...options,
+      ...defaultFetchOptions,
+      ...options
     });
+    
     return response;
   } catch (error) {
-    console.error(`Erro na requisição DELETE para ${path}:`, error);
+    console.error(`[API] Erro DELETE: ${error}`);
     throw error;
   }
 }; 

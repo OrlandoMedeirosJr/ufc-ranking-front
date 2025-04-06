@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { apiGet, buildApiUrl } from "@/config/api";
+import React from 'react';
 
 interface Lutador {
   id: number;
@@ -16,46 +16,79 @@ export default async function LutadoresPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // Extrair parâmetros de busca
-  const nome = typeof searchParams.nome === 'string' ? searchParams.nome : undefined;
-  const pais = typeof searchParams.pais === 'string' ? searchParams.pais : undefined;
-  const sexo = typeof searchParams.sexo === 'string' ? searchParams.sexo : undefined;
+  // Acessar os parâmetros de busca com await conforme exigido pelo Next.js 15
+  const searchParamsAwait = await searchParams;
+  const nome = typeof searchParamsAwait?.nome === 'string' ? searchParamsAwait.nome : undefined;
+  const pais = typeof searchParamsAwait?.pais === 'string' ? searchParamsAwait.pais : undefined;
+  const sexo = typeof searchParamsAwait?.sexo === 'string' ? searchParamsAwait.sexo : undefined;
   
   // Construir URL com parâmetros de busca
-  let apiPath = 'lutadores';
+  let queryParams = '';
   
   if (nome || pais || sexo) {
     const params = new URLSearchParams();
     if (nome) params.append('nome', nome);
     if (pais) params.append('pais', pais);
     if (sexo) params.append('sexo', sexo);
-    apiPath += `?${params.toString()}`;
+    queryParams = `?${params.toString()}`;
   }
   
   let lutadores: Lutador[] = [];
   let erro: string | null = null;
   
   try {
-    const res = await apiGet(apiPath);
+    // URL direta para a API
+    const url = `http://localhost:3334/lutadores${queryParams}`;
+    console.log(`Buscando lutadores diretamente: ${url}`);
+    
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit'
+    });
     
     if (!res.ok) {
+      console.error(`Erro na resposta da API: ${res.status} - ${res.statusText}`);
       throw new Error(`Erro ao carregar lutadores: ${res.status}`);
     }
     
     lutadores = await res.json();
+    console.log(`Lutadores carregados com sucesso: ${lutadores.length}`);
     
     if (!Array.isArray(lutadores)) {
+      console.error('Resposta da API não é um array:', lutadores);
       throw new Error('Resposta da API não retornou um array válido');
     }
 
     // Para cada lutador, buscar as categorias em que já lutou
     for (const lutador of lutadores) {
       try {
-        const resCategoria = await apiGet(`lutadores/${lutador.id}/categorias`);
+        // URL direta para API de categorias do lutador
+        const categoriaUrl = `http://localhost:3334/lutadores/${lutador.id}/categorias`;
+        console.log(`Buscando categorias do lutador ${lutador.id}: ${categoriaUrl}`);
+        
+        const resCategoria = await fetch(categoriaUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
         
         if (resCategoria.ok) {
           const data = await resCategoria.json();
           lutador.categorias = data.categorias;
+          console.log(`Categorias do lutador ${lutador.id} carregadas: ${data.categorias?.length || 0}`);
+        } else {
+          console.warn(`Erro ao buscar categorias do lutador ${lutador.id}: ${resCategoria.status}`);
         }
       } catch (e) {
         console.error(`Erro ao buscar categorias do lutador ${lutador.id}:`, e);
@@ -64,7 +97,53 @@ export default async function LutadoresPage({
   } catch (error) {
     console.error("Erro ao buscar lutadores:", error);
     erro = error instanceof Error ? error.message : 'Erro desconhecido';
-    // Não vamos usar dados de exemplo, vamos mostrar o erro
+    
+    // Tentativa alternativa
+    try {
+      console.log('Tentando abordagem alternativa para buscar lutadores...');
+      const alternativeUrl = 'http://localhost:3334/lutadores';
+      console.log(`URL alternativa: ${alternativeUrl}`);
+      
+      const alternativeRes = await fetch(alternativeUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (alternativeRes.ok) {
+        const alternativeLutadores = await alternativeRes.json();
+        console.log(`Recuperação alternativa bem-sucedida: ${alternativeLutadores.length} lutadores`);
+        
+        if (Array.isArray(alternativeLutadores) && alternativeLutadores.length > 0) {
+          lutadores = alternativeLutadores;
+          
+          // Se temos filtros, aplicamos manualmente
+          if (nome || pais || sexo) {
+            lutadores = lutadores.filter(lutador => {
+              let match = true;
+              if (nome) match = match && lutador.nome.toLowerCase().includes(nome.toLowerCase());
+              if (pais) match = match && lutador.pais.toLowerCase().includes(pais.toLowerCase());
+              if (sexo) match = match && lutador.sexo === sexo;
+              return match;
+            });
+            console.log(`Filtrados para ${lutadores.length} lutadores após aplicar filtros manualmente`);
+          }
+          
+          erro = null; // Limpar erro pois temos dados
+        } else {
+          console.error('Resposta alternativa não contém um array válido');
+        }
+      } else {
+        console.error(`Falha também na abordagem alternativa: ${alternativeRes.status}`);
+      }
+    } catch (alternativeError) {
+      console.error('Erro na abordagem alternativa:', alternativeError);
+    }
   }
 
   return (

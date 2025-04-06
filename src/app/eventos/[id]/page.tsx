@@ -70,8 +70,9 @@ interface PageProps {
 }
 
 export default function EventoDetalhesPage({ params }: PageProps) {
-  // Extrair o ID diretamente de params sem usar React.use()
-  const eventoId = params.id;
+  // Usar React.use para "unwrap" os parâmetros
+  const unwrappedParams = React.use(params);
+  const eventoId = unwrappedParams.id;
   
   console.log('ID do evento:', eventoId);
   
@@ -94,16 +95,29 @@ export default function EventoDetalhesPage({ params }: PageProps) {
           throw new Error('ID do evento não encontrado');
         }
         
-        // Adicione parâmetro para incluir detalhes completos de todas as lutas
-        const res = await fetch(buildApiUrl(`eventos/${eventoId}?includeDetails=true&includeBonus=true`), { 
-          cache: 'no-store'
+        // URL direta para a API
+        const url = `http://localhost:3334/eventos/${eventoId}?includeDetails=true&includeBonus=true`;
+        console.log(`Buscando evento diretamente: ${url}`);
+        
+        const res = await fetch(url, { 
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
         });
         
         if (!res.ok) {
+          console.error(`Erro na resposta da API: ${res.status} - ${res.statusText}`);
           throw new Error(`Erro ao buscar evento: ${res.status}`);
         }
         
-        return res.json();
+        const data = await res.json();
+        console.log(`Evento carregado com sucesso: ID ${data.id} - ${data.nome}`);
+        return data;
       } catch (error) {
         console.error('Erro ao buscar evento:', error);
         throw error;
@@ -117,16 +131,29 @@ export default function EventoDetalhesPage({ params }: PageProps) {
           throw new Error('ID do evento não encontrado');
         }
         
-        // Adicione parâmetro para incluir bônus
-        const res = await fetch(buildApiUrl(`eventos/${eventoId}/lutas?includeBonus=true`), { 
-          cache: 'no-store'
+        // URL direta para a API
+        const url = `http://localhost:3334/eventos/${eventoId}/lutas?includeBonus=true`;
+        console.log(`Buscando lutas diretamente: ${url}`);
+        
+        const res = await fetch(url, { 
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
         });
         
         if (!res.ok) {
+          console.error(`Erro na resposta da API: ${res.status} - ${res.statusText}`);
           throw new Error(`Erro ao buscar lutas: ${res.status}`);
         }
         
-        return res.json();
+        const data = await res.json();
+        console.log(`Lutas carregadas com sucesso: ${data.lutas?.length || 0} lutas encontradas`);
+        return data;
       } catch (error) {
         console.error('Erro ao buscar lutas:', error);
         return { lutas: [] };
@@ -230,16 +257,35 @@ export default function EventoDetalhesPage({ params }: PageProps) {
             console.log('Lutas carregadas separadamente:', lutasData);
             setLutas(lutasData.lutas);
           } catch (lutasError) {
-            const lutasResponse = await fetch(buildApiUrl(`lutas?eventoId=${eventoId}`));
-            if (lutasResponse.ok) {
-              const lutasData = await lutasResponse.json();
-              console.log('Lutas carregadas separadamente:', lutasData);
-              setLutas(lutasData);
-            } else {
-              console.log('Não foi possível carregar lutas separadamente');
+            try {
+              console.log('Tentando carregar lutas por abordagem alternativa...');
+              const lutasUrl = `http://localhost:3334/lutas?eventoId=${eventoId}`;
+              console.log(`URL alternativa: ${lutasUrl}`);
+              
+              const lutasResponse = await fetch(lutasUrl, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                cache: 'no-store',
+                mode: 'cors',
+                credentials: 'omit'
+              });
+              
+              if (lutasResponse.ok) {
+                const lutasData = await lutasResponse.json();
+                console.log(`Lutas alternativas carregadas: ${lutasData.length} encontradas`);
+                setLutas(lutasData);
+              } else {
+                console.error(`Erro na abordagem alternativa: ${lutasResponse.status}`);
+                console.log('Não foi possível carregar lutas separadamente');
+                setLutas([]);
+              }
+            } catch (alternativeError) {
+              console.error('Erro na abordagem alternativa:', alternativeError);
               setLutas([]);
             }
-            console.error('Erro ao carregar lutas:', lutasError);
           }
         }
       } catch (error) {

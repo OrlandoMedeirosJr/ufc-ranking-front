@@ -1,4 +1,3 @@
-import { buildApiUrl } from "@/config/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -17,16 +16,60 @@ interface RecordeInfo {
 
 export default async function RecordesPage() {
   try {
-    const res = await fetch(buildApiUrl("recordes"), { 
-      cache: "no-store",
-      next: { revalidate: 0 }
+    // URL direta para a API de recordes
+    const url = 'http://localhost:3334/recordes';
+    console.log(`Buscando recordes diretamente: ${url}`);
+    
+    const res = await fetch(url, { 
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit'
     });
     
     if (!res.ok) {
-      throw new Error("Falha ao carregar recordes");
+      console.error(`Erro na resposta da API: ${res.status} - ${res.statusText}`);
+      throw new Error(`Falha ao carregar recordes: ${res.status}`);
     }
     
     const recordes: RecordeInfo[] = await res.json();
+    console.log(`Recordes carregados com sucesso: ${recordes.length} itens`);
+    
+    // Caso alternativo se a primeira tentativa falhar
+    if (!recordes || recordes.length === 0) {
+      console.warn('Lista de recordes vazia, tentando método alternativo...');
+      try {
+        // Tentar novamente com uma abordagem ligeiramente diferente
+        const alternativeUrl = 'http://localhost:3334/recordes';
+        console.log(`Tentando URL alternativa: ${alternativeUrl}`);
+        
+        const alternativeRes = await fetch(alternativeUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (alternativeRes.ok) {
+          const alternativeRecordes: RecordeInfo[] = await alternativeRes.json();
+          console.log(`Recuperação alternativa bem-sucedida: ${alternativeRecordes.length} itens`);
+          
+          if (alternativeRecordes.length > 0) {
+            recordes.push(...alternativeRecordes);
+          }
+        }
+      } catch (alternativeError) {
+        console.error('Erro na abordagem alternativa:', alternativeError);
+      }
+    }
     
     // Organizar recordes por tipo
     const recordesLutadores = recordes.filter(r => 
@@ -40,7 +83,7 @@ export default async function RecordesPage() {
     );
     
     const recordesEventos = recordes.filter(r => 
-      ['Maior público', 'Maior arrecadação'].includes(r.tipo)
+      ['Maior público', 'Maior arrecadação', 'Maior pay-per-view'].includes(r.tipo)
     );
     
     const recordesCategorias = recordes.filter(r => r.categoria);
@@ -59,6 +102,7 @@ export default async function RecordesPage() {
         'Mais derrotas consecutivas': '📉',
         'Maior público': '👥',
         'Maior arrecadação': '💲',
+        'Maior pay-per-view': '📺',
       };
       
       return emojiMap[tipo] || '🏅';
@@ -201,7 +245,9 @@ export default async function RecordesPage() {
                         <div className="text-2xl font-bold text-amber-600 mt-2">
                           {recorde.tipo === 'Maior arrecadação' 
                             ? formatarMoeda(recorde.valor)
-                            : formatarNumero(recorde.valor) + ' espectadores'}
+                            : recorde.tipo === 'Maior pay-per-view'
+                              ? formatarNumero(recorde.valor) + ' compras'
+                              : formatarNumero(recorde.valor) + ' espectadores'}
                         </div>
                       </div>
                     ) : (

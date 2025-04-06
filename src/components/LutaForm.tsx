@@ -228,9 +228,14 @@ const LutaForm: React.FC<LutaFormProps> = ({
     const timeouts: NodeJS.Timeout[] = [];
     
     // Buscar informações de ranking quando o lutador é preenchido e categoria selecionada
-    if (dadosLuta.lutador1 && dadosLuta.lutador1.trim().length >= 3 && !camposEmVerificacao[`${index}-lutador1`]) {
+    if (dadosLuta.lutador1 && 
+        dadosLuta.lutador1.trim().length >= 3 && 
+        !camposEmVerificacao[`${index}-lutador1`] && 
+        !carregandoInfo1 && 
+        (!infoLutador1 || (infoLutador1 && Object.keys(infoLutador1).length === 0))) {
       // Debounce para evitar muitas requisições enquanto o usuário digita
       const timeout = setTimeout(() => {
+        console.log(`Buscando info do lutador 1: ${dadosLuta.lutador1}`);
         buscarInfoLutador(dadosLuta.lutador1, 1);
       }, 500);
       timeouts.push(timeout);
@@ -238,9 +243,14 @@ const LutaForm: React.FC<LutaFormProps> = ({
       setInfoLutador1(null);
     }
     
-    if (dadosLuta.lutador2 && dadosLuta.lutador2.trim().length >= 3 && !camposEmVerificacao[`${index}-lutador2`]) {
+    if (dadosLuta.lutador2 && 
+        dadosLuta.lutador2.trim().length >= 3 && 
+        !camposEmVerificacao[`${index}-lutador2`] && 
+        !carregandoInfo2 && 
+        (!infoLutador2 || (infoLutador2 && Object.keys(infoLutador2).length === 0))) {
       // Debounce para evitar muitas requisições enquanto o usuário digita
       const timeout = setTimeout(() => {
+        console.log(`Buscando info do lutador 2: ${dadosLuta.lutador2}`);
         buscarInfoLutador(dadosLuta.lutador2, 2);
       }, 500);
       timeouts.push(timeout);
@@ -252,30 +262,43 @@ const LutaForm: React.FC<LutaFormProps> = ({
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout));
     };
-  }, [dadosLuta.lutador1, dadosLuta.lutador2, dadosLuta.categoria, camposEmVerificacao, index]);
+  }, [dadosLuta.lutador1, dadosLuta.lutador2, dadosLuta.categoria, camposEmVerificacao, index, carregandoInfo1, carregandoInfo2, infoLutador1, infoLutador2]);
   
   const buscarInfoLutador = async (nome: string, lutadorNumero: 1 | 2) => {
     try {
+      // Evitar requisições repetidas para o mesmo lutador se já estiver carregando
+      if ((lutadorNumero === 1 && carregandoInfo1) || (lutadorNumero === 2 && carregandoInfo2)) {
+        return;
+      }
+      
       if (lutadorNumero === 1) {
         setCarregandoInfo1(true);
       } else {
         setCarregandoInfo2(true);
       }
       
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+      // Importar buildApiUrl de config/api
+      const { buildApiUrl } = await import('@/config/api');
       
       // Criar um controller para abortar a requisição se demorar muito
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       try {
-        const response = await fetch(`${API_URL}/lutadores/${encodeURIComponent(nome)}/info-ranking`, {
-          signal: controller.signal
+        const apiUrl = buildApiUrl(`lutadores/${encodeURIComponent(nome)}/info-ranking`);
+        console.log(`Buscando informações do lutador ${nome} na URL: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         
         clearTimeout(timeoutId);
         
         if (!response.ok) {
+          console.warn(`Erro ao buscar informações do lutador ${nome}: ${response.status}`);
           if (response.status === 404) {
             // Lutador não encontrado - limpar os dados
             if (lutadorNumero === 1) {
@@ -285,7 +308,7 @@ const LutaForm: React.FC<LutaFormProps> = ({
             }
             return;
           }
-          throw new Error('Falha ao carregar informações de ranking');
+          throw new Error(`Falha ao carregar informações de ranking: ${response.status}`);
         }
         
         const data = await response.json();
@@ -299,11 +322,23 @@ const LutaForm: React.FC<LutaFormProps> = ({
         if (err.name === 'AbortError') {
           console.warn(`Requisição de info-ranking para ${nome} cancelada por timeout`);
         } else {
-          throw err;
+          console.error(`Erro na requisição de info-ranking para ${nome}:`, err);
+          // Armazenar dados vazios para evitar novas tentativas
+          if (lutadorNumero === 1) {
+            setInfoLutador1({} as InfoRanking);
+          } else {
+            setInfoLutador2({} as InfoRanking);
+          }
         }
       }
     } catch (error) {
       console.error(`Erro ao buscar informações do lutador ${lutadorNumero}:`, error);
+      // Armazenar dados vazios para evitar novas tentativas
+      if (lutadorNumero === 1) {
+        setInfoLutador1({} as InfoRanking);
+      } else {
+        setInfoLutador2({} as InfoRanking);
+      }
     } finally {
       if (lutadorNumero === 1) {
         setCarregandoInfo1(false);

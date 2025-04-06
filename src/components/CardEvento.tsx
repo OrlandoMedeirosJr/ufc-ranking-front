@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Calendar, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, Clock, DollarSign, Users } from 'lucide-react';
 import { formatarData, formatarNumero, formatarMoeda } from '@/utils/formatters';
 
 interface EventoProps {
@@ -12,6 +12,7 @@ interface EventoProps {
   lutas?: number;
   publicoTotal?: number;
   arrecadacao?: number;
+  payPerView?: number;
 }
 
 export default function CardEvento({ 
@@ -23,7 +24,8 @@ export default function CardEvento({
   finalizado, 
   lutas = 0,
   publicoTotal, 
-  arrecadacao 
+  arrecadacao,
+  payPerView 
 }: EventoProps) {
   return (
     <Link href={`/eventos/${id}`}>
@@ -57,8 +59,15 @@ export default function CardEvento({
             
             {finalizado && publicoTotal && (
               <div className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-gray-400" />
+                <Users className="h-4 w-4 text-gray-400" />
                 <span>Público: {formatarNumero(publicoTotal)}</span>
+              </div>
+            )}
+            
+            {finalizado && payPerView && (
+              <div className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4 text-gray-400" />
+                <span>PPV: {formatarNumero(payPerView)}</span>
               </div>
             )}
           </div>

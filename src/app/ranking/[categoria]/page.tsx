@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import RankingTable from "@/components/RankingTable";
 import { rankingColorClassMap } from "@/utils/rankingColors";
-import { buildApiUrl } from "@/config/api";
 
 interface Lutador {
   nome: string;
@@ -25,7 +24,15 @@ export default async function RankingPage({
 }: { 
   params: { categoria: string } 
 }) {
-  const categoria = decodeURIComponent(params.categoria);
+  // Em vez de acessar diretamente, vamos usar await nos parâmetros
+  const categoriaParam = await params?.categoria;
+  
+  // Verificar se temos uma categoria válida
+  if (!categoriaParam) {
+    return notFound();
+  }
+  
+  const categoria = decodeURIComponent(categoriaParam);
   
   // Mapeamento de slugs para nomes de categorias no formato que o backend espera
   const categoriasMap: Record<string, string> = {
@@ -48,26 +55,70 @@ export default async function RankingPage({
   const categoriaFormatada = categoriasMap[categoria] || categoria;
   
   try {
-    // Usar fetch diretamente para debugging
-    const apiUrl = buildApiUrl(`ranking/${categoriaFormatada}`);
-    console.log('Fazendo requisição para:', apiUrl);
+    // URL direta para a API de ranking
+    const apiUrl = `http://localhost:3334/ranking/${encodeURIComponent(categoriaFormatada)}`;
+    console.log(`Buscando ranking diretamente: ${apiUrl}`);
     
     const res = await fetch(apiUrl, {
-      cache: 'no-store',
-      mode: 'cors',
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      next: { revalidate: 0 }
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit'
     });
 
     if (!res.ok) {
-      console.error('Erro na resposta:', res.status, res.statusText);
-      return notFound();
+      console.error(`Erro na resposta da API: ${res.status} - ${res.statusText}`);
+      
+      // Tentativa alternativa para o caso de problemas com encoding
+      console.log('Tentando abordagem alternativa com encoding diferente...');
+      const alternativeUrl = `http://localhost:3334/ranking/${encodeURIComponent(categoriaFormatada).replace(/%20/g, '+')}`;
+      console.log(`URL alternativa: ${alternativeUrl}`);
+      
+      try {
+        const alternativeRes = await fetch(alternativeUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (alternativeRes.ok) {
+          const data: RankingItem[] = await alternativeRes.json();
+          console.log(`Recuperação alternativa bem-sucedida: ${data.length} itens`);
+          
+          // Formatar título da categoria para exibição
+          const categoriaTitulo = categoriasMap[categoria] || categoria.split('-').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1)
+          ).join(' ');
+
+          return (
+            <RankingTable
+              dados={data}
+              categoria={categoria}
+              categoriaTitulo={categoriaTitulo}
+              corBackgroundMap={rankingColorClassMap}
+            />
+          );
+        } else {
+          console.error(`Falha também na abordagem alternativa: ${alternativeRes.status}`);
+          return notFound();
+        }
+      } catch (alternativeError) {
+        console.error('Erro na abordagem alternativa:', alternativeError);
+        throw alternativeError; // Propagar para o tratamento de erro global
+      }
     }
 
     const data: RankingItem[] = await res.json();
-    console.log('Dados recebidos:', data.length, 'itens');
+    console.log(`Dados recebidos com sucesso: ${data.length} itens`);
 
     // Formatar título da categoria para exibição
     const categoriaTitulo = categoriasMap[categoria] || categoria.split('-').map(word => 
