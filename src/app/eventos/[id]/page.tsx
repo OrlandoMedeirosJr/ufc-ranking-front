@@ -449,93 +449,96 @@ export default function EventoDetalhesPage({ params }: PageProps) {
                   </div>
                 </div>
                 
+                {/* Resultado (apenas se o evento estiver finalizado) */}
                 {evento.finalizado && (
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     <p className="text-sm">
                       <span className="font-medium">Resultado:</span>{" "}
                       {obterResultadoFormatado(luta)}
                     </p>
-                    
-                    {(() => {
-                      console.log('Verificando bônus da luta:', luta.id);
-                      console.log('Dados da luta:', JSON.stringify(luta, null, 2));
-                      
-                      // Verificar todos os formatos possíveis para bônus
-                      let temBonusLuta = false;
-                      let temBonusPerformance = false;
-                      
-                      // Verificação direta no objeto resultado
-                      if (luta.resultado) {
-                        temBonusLuta = !!luta.resultado.bonusLuta;
-                        temBonusPerformance = !!luta.resultado.bonusPerformance;
-                        console.log(`De resultado: bonusLuta=${temBonusLuta}, bonusPerformance=${temBonusPerformance}`);
-                      }
-                      
-                      // Verificação na propriedade bonus como string 
-                      if (typeof luta.bonus === 'string') {
-                        const bonusLowerCase = luta.bonus.toLowerCase();
-                        
-                        // Verificar "luta", "ambos", "luta da noite"
-                        if (
-                          bonusLowerCase === 'luta' || 
-                          bonusLowerCase === 'luta da noite' ||
-                          bonusLowerCase === 'ambos' ||
-                          bonusLowerCase.includes('luta da noite')
-                        ) {
-                          temBonusLuta = true;
-                        }
-                        
-                        // Verificar "performance", "ambos", "performance da noite"
-                        if (
-                          bonusLowerCase === 'performance' || 
-                          bonusLowerCase === 'performance da noite' ||
-                          bonusLowerCase === 'ambos' ||
-                          bonusLowerCase.includes('performance da noite')
-                        ) {
-                          temBonusPerformance = true;
-                        }
-                        
-                        // Verificar strings separadas por vírgula
-                        if (bonusLowerCase.includes(',')) {
-                          const bonusParts = bonusLowerCase.split(',').map(p => p.trim());
-                          
-                          if (
-                            bonusParts.includes('luta') || 
-                            bonusParts.includes('luta da noite') ||
-                            bonusParts.some(p => p.includes('luta da noite'))
-                          ) {
-                            temBonusLuta = true;
-                          }
-                          
-                          if (
-                            bonusParts.includes('performance') || 
-                            bonusParts.includes('performance da noite') ||
-                            bonusParts.some(p => p.includes('performance da noite'))
-                          ) {
-                            temBonusPerformance = true;
-                          }
-                        }
-                        
-                        console.log(`De string: bonusLuta=${temBonusLuta}, bonusPerformance=${temBonusPerformance}, valor='${luta.bonus}'`);
-                      }
-                      
-                      return (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {temBonusLuta && (
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
-                              Luta da Noite
-                            </span>
-                          )}
-                          {temBonusPerformance && (
-                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">
-                              Performance da Noite
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })()}
                   </div>
                 )}
+                
+                {/* Bônus (visível independente do estado do evento) */}
+                {(() => {
+                  console.log('Verificando bônus da luta:', luta.id);
+                  console.log('Dados da luta:', JSON.stringify(luta, null, 2));
+                  
+                  // Verificar todos os formatos possíveis para bônus
+                  let temBonusLuta = false;
+                  let temBonusPerformance = false;
+                  
+                  // Verificação direta no objeto resultado
+                  if (luta.resultado) {
+                    temBonusLuta = !!luta.resultado.bonusLuta;
+                    temBonusPerformance = !!luta.resultado.bonusPerformance;
+                    console.log(`De resultado: bonusLuta=${temBonusLuta}, bonusPerformance=${temBonusPerformance}`);
+                  }
+                  
+                  // Verificação na propriedade bonus como string 
+                  if (typeof luta.bonus === 'string') {
+                    const bonusLowerCase = luta.bonus.toLowerCase();
+                    
+                    // Verificar "luta", "ambos", "luta da noite"
+                    if (
+                      bonusLowerCase === 'luta' || 
+                      bonusLowerCase === 'luta da noite' ||
+                      bonusLowerCase === 'ambos' ||
+                      bonusLowerCase.includes('luta da noite')
+                    ) {
+                      temBonusLuta = true;
+                    }
+                    
+                    // Verificar "performance", "ambos", "performance da noite"
+                    if (
+                      bonusLowerCase === 'performance' || 
+                      bonusLowerCase === 'performance da noite' ||
+                      bonusLowerCase === 'ambos' ||
+                      bonusLowerCase.includes('performance da noite')
+                    ) {
+                      temBonusPerformance = true;
+                    }
+                    
+                    // Verificar strings separadas por vírgula
+                    if (bonusLowerCase.includes(',')) {
+                      const bonusParts = bonusLowerCase.split(',').map(p => p.trim());
+                      
+                      if (
+                        bonusParts.includes('luta') || 
+                        bonusParts.includes('luta da noite') ||
+                        bonusParts.some(p => p.includes('luta da noite'))
+                      ) {
+                        temBonusLuta = true;
+                      }
+                      
+                      if (
+                        bonusParts.includes('performance') || 
+                        bonusParts.includes('performance da noite') ||
+                        bonusParts.some(p => p.includes('performance da noite'))
+                      ) {
+                        temBonusPerformance = true;
+                      }
+                    }
+                    
+                    console.log(`De string: bonusLuta=${temBonusLuta}, bonusPerformance=${temBonusPerformance}, valor='${luta.bonus}'`);
+                  }
+                  
+                  // Mostrar a seção de bônus se houver algum bônus
+                  return (temBonusLuta || temBonusPerformance) ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {temBonusLuta && (
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">
+                          Luta da Noite
+                        </span>
+                      )}
+                      {temBonusPerformance && (
+                        <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">
+                          Performance da Noite
+                        </span>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             ))}
           </div>

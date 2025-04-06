@@ -89,36 +89,55 @@ export default function DashboardPage() {
           
           if (categoriaStatsRes.ok) {
             const categoriaStats = await categoriaStatsRes.json();
+            console.log('Dados de categorias recebidos da API:', categoriaStats);
+            
+            // Filtrar para incluir apenas categorias com lutas
+            const categoriasFiltradas = categoriaStats.filter(item => item.count > 0);
+            console.log('Categorias filtradas (apenas com lutas):', categoriasFiltradas);
+            
             // Se o backend retornar os dados, usamos eles
-            setLutasPorCategoria(categoriaStats);
+            setLutasPorCategoria(categoriasFiltradas);
           } else {
-            // Caso contrário, criamos estatísticas simuladas para visualização
-            const categoriasPadrao = [
-              'Peso Mosca', 'Peso Galo', 'Peso Pena', 'Peso Leve', 
-              'Peso Meio-Médio', 'Peso Médio', 'Peso Meio-Pesado', 'Peso Pesado',
-              'Peso Palha Feminino', 'Peso Mosca Feminino', 'Peso Galo Feminino', 'Peso Pena Feminino'
-            ];
+            console.log('API de contagem de categorias não retornou dados. Obtendo diretamente das lutas.');
             
-            categoriasPadrao.forEach(cat => {
-              // Distribuição aproximada baseada em popularidade relativa das categorias
-              const fator = cat.includes('Leve') || cat.includes('Meio-Médio') ? 1.5 : 1;
-              const fatorFeminino = cat.includes('Feminino') ? 0.7 : 1;
-              const valor = Math.floor(Math.random() * 5 * fator * fatorFeminino) + 
-                            Math.floor(totalLutas / categoriasPadrao.length * fator * fatorFeminino);
+            // Se não conseguiu da API específica, vamos buscar todas as lutas e contar manualmente
+            try {
+              const lutasRes = await fetch(buildApiUrl('lutas'), { cache: 'no-store' });
               
-              lutasPorCategoriaTemp[cat] = valor;
-            });
-            
-            const chartData = Object.entries(lutasPorCategoriaTemp).map(([categoria, count]) => ({
-              categoria,
-              count
-            }));
-            
-            setLutasPorCategoria(chartData);
+              if (lutasRes.ok) {
+                const todasLutas = await lutasRes.json();
+                console.log(`Obtidas ${todasLutas.length} lutas para contar categorias`);
+                
+                // Contar manualmente por categoria
+                const contagemCategorias: Record<string, number> = {};
+                
+                for (const luta of todasLutas) {
+                  const categoria = luta.categoria || 'Categoria não especificada';
+                  contagemCategorias[categoria] = (contagemCategorias[categoria] || 0) + 1;
+                }
+                
+                const chartData = Object.entries(contagemCategorias)
+                  .filter(([_, count]) => count > 0) // Filtrar apenas categorias com lutas
+                  .map(([categoria, count]) => ({
+                    categoria,
+                    count
+                  }));
+                
+                console.log('Contagem manual por categoria:', chartData);
+                setLutasPorCategoria(chartData);
+              } else {
+                // Se não conseguir dados reais, não exibe nada em vez de mostrar dados fictícios
+                console.log('Não foi possível obter dados de lutas. Exibindo gráfico vazio.');
+                setLutasPorCategoria([]);
+              }
+            } catch (error) {
+              console.error('Erro ao obter e contar lutas:', error);
+              setLutasPorCategoria([]);
+            }
           }
         } catch (error) {
           console.error('Erro ao obter contagem por categoria:', error);
-          // Deixar a lista vazia em caso de erro
+          setLutasPorCategoria([]);
         }
 
         // Atualizar estatísticas gerais
