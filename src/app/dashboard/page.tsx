@@ -139,12 +139,32 @@ export default function DashboardPage() {
 
         console.log(`Total final de lutas: ${totalLutas}`);
 
-        // Conjunto de categorias ativas no ranking
-        const categorias = new Set<string>();
-        for (const lutador of lutadores) {
-          if (lutador.categoriaAtual) {
-            categorias.add(lutador.categoriaAtual);
+        // Se não temos dados do endpoint centralizado, usamos o método antigo (fallback)
+        // Obter informações de lutadores para contagem de categorias
+        try {
+          const lutadoresRes = await fetch(buildApiUrl('lutadores'), { cache: 'no-store' });
+          if (lutadoresRes.ok) {
+            const lutadores = await lutadoresRes.json();
+            
+            // Conjunto de categorias ativas no ranking
+            const categorias = new Set<string>();
+            for (const lutador of lutadores) {
+              if (lutador.categoriaAtual) {
+                categorias.add(lutador.categoriaAtual);
+              }
+            }
+            
+            // Atualizar estatísticas com os dados obtidos diretamente
+            setEstatisticas(prevState => ({
+              ...prevState,
+              totalLutadores: lutadores.length,
+              totalCategorias: categorias.size,
+            }));
+            
+            console.log(`Dados de lutadores obtidos: ${lutadores.length} lutadores, ${categorias.size} categorias`);
           }
+        } catch (error) {
+          console.error('Erro ao buscar lutadores:', error);
         }
 
         // Contagem de lutas por categoria
@@ -208,18 +228,17 @@ export default function DashboardPage() {
         }
 
         // Atualizar estatísticas gerais com a contagem correta de lutas
-        setEstatisticas({
-          totalLutadores: lutadores.length,
+        setEstatisticas(prevState => ({
+          ...prevState,
           totalEventos: eventos.length,
           totalLutas: totalLutas || 0, // Garantir que nunca seja undefined
-          totalCategorias: categorias.size,
-        });
+        }));
 
         console.log('Estatísticas finais atualizadas no dashboard:', {
-          totalLutadores: lutadores.length,
+          totalLutadores: estatisticas.totalLutadores,
           totalEventos: eventos.length,
           totalLutas: totalLutas || 0,
-          totalCategorias: categorias.size,
+          totalCategorias: estatisticas.totalCategorias,
         });
 
         // Atualizar últimos eventos (limitando a 3)
