@@ -9,6 +9,7 @@ const navItems = [
   { href: "/ranking/peso-por-peso", label: "Ranking" },
   { href: "/recordes", label: "Recordes" },
   { href: "/lutadores", label: "Lutadores" },
+  { href: "/admin", label: "⚙️ Admin" },
 ];
 
 export function Navbar() {
