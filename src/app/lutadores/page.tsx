@@ -15,13 +15,13 @@ interface Lutador {
 export default async function LutadoresPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Acessar os parâmetros de busca com await conforme exigido pelo Next.js 15
-  const searchParamsAwait = await searchParams;
-  const nome = typeof searchParamsAwait?.nome === 'string' ? searchParamsAwait.nome : undefined;
-  const pais = typeof searchParamsAwait?.pais === 'string' ? searchParamsAwait.pais : undefined;
-  const sexo = typeof searchParamsAwait?.sexo === 'string' ? searchParamsAwait.sexo : undefined;
+  // Await searchParams já que agora é uma Promise no Next.js 15
+  const unwrappedSearchParams = await searchParams;
+  const nome = typeof unwrappedSearchParams?.nome === 'string' ? unwrappedSearchParams.nome : undefined;
+  const pais = typeof unwrappedSearchParams?.pais === 'string' ? unwrappedSearchParams.pais : undefined;
+  const sexo = typeof unwrappedSearchParams?.sexo === 'string' ? unwrappedSearchParams.sexo : undefined;
   
   // Construir URL com parâmetros de busca
   let queryParams = '';
