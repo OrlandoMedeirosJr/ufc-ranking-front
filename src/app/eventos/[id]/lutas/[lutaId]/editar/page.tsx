@@ -28,6 +28,7 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
   const [lutaData, setLutaData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const router = useRouter();
   
   console.log('Editando luta:', { eventoId, lutaId });
 
@@ -77,9 +78,10 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
       
       console.log('Dados da luta processados:', lutaProcessada);
       setLutaData(lutaProcessada);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao buscar dados:', error);
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -163,14 +165,16 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
         console.log('Luta atualizada com sucesso:', responseData);
         
         // Redirecionar para a página do evento
-        window.location.href = `/eventos/${eventoId}`;
-      } catch (fetchError) {
-        console.error('Erro na requisição fetch:', fetchError);
-        throw new Error(`Erro na comunicação com o servidor: ${fetchError.message}`);
+        router.push(`/eventos/${eventoId}`);
+      } catch (error: unknown) {
+        console.error('Erro ao atualizar luta:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        setError(`Erro ao atualizar luta: ${errorMessage}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao enviar dados:', error);
-      setError(error instanceof Error ? error.message : JSON.stringify(error) || 'Erro desconhecido');
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error) || 'Erro desconhecido';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

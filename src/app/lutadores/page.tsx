@@ -91,11 +91,11 @@ export default async function LutadoresPage({
         } else {
           console.warn(`Erro ao buscar categorias do lutador ${lutador.id}: ${resCategoria.status}`);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.error(`Erro ao buscar categorias do lutador ${lutador.id}:`, e);
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Erro ao buscar lutadores:", error);
     erro = error instanceof Error ? error.message : 'Erro desconhecido';
     
@@ -142,7 +142,7 @@ export default async function LutadoresPage({
       } else {
         console.error(`Falha também na abordagem alternativa: ${alternativeRes.status}`);
       }
-    } catch (alternativeError) {
+    } catch (alternativeError: unknown) {
       console.error('Erro na abordagem alternativa:', alternativeError);
     }
   }

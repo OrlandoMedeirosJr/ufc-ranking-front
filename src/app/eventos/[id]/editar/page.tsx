@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Modal from 'react-modal';
 import React, { use } from 'react';
 import LutaForm, { Luta } from '@/components/LutaForm';
-import { buildApiUrl, apiGet, apiPut, apiPost } from '@/config/api';
+import { buildApiUrl, apiGet, apiPut, apiPost, apiConfig } from '@/config/api';
 import { useToast } from "@/components/ui/use-toast";
 
 interface Evento {
@@ -70,24 +70,21 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
 
   // Função utilitária para tentar múltiplas URLs da API
   const fetchWithMultipleAttempts = async (path: string, options: RequestInit) => {
-    // Usar diretamente URLs explícitas para maior confiabilidade
-    const baseUrl = 'http://127.0.0.1:3334';
-    const url = `${baseUrl}/${path.startsWith('/') ? path.substring(1) : path}`;
+    // Usar a configuração centralizada da API
+    const url = buildApiUrl(path);
     
-    console.log(`Tentando requisição para URL explícita (IP): ${url}`);
+    console.log(`Tentando requisição para URL: ${url}`);
     
     try {
       // Adicionar opções padrão para melhorar a comunicação com a API
       const fetchOptions = {
         ...options,
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
+          ...apiConfig.headers,
           ...options.headers
         },
-        mode: 'cors' as RequestMode,
-        credentials: 'omit' as RequestCredentials,
+        mode: apiConfig.mode as RequestMode,
+        credentials: apiConfig.credentials as RequestCredentials,
         cache: 'no-store' as RequestCache
       };
       
@@ -99,21 +96,20 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
     } catch (error) {
       console.error(`Erro ao chamar ${url}:`, error);
       
-      // Tentar um fallback direto com localhost
+      // Tentar uma URL alternativa como fallback
       try {
-        const fallbackUrl = `http://localhost:3334/${path.startsWith('/') ? path.substring(1) : path}`;
-        console.log(`Tentando fallback com localhost: ${fallbackUrl}`);
+        // Criar URL alternativa na porta 3334 (compatibilidade)
+        const fallbackUrl = url.replace(':3002', ':3334');
+        console.log(`Tentando fallback: ${fallbackUrl}`);
         
         const fallbackResponse = await fetch(fallbackUrl, {
           ...options,
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache',
+            ...apiConfig.headers,
             ...options.headers
           },
-          mode: 'cors' as RequestMode,
-          credentials: 'omit' as RequestCredentials,
+          mode: apiConfig.mode as RequestMode,
+          credentials: apiConfig.credentials as RequestCredentials,
           cache: 'no-store' as RequestCache
         });
         
@@ -295,10 +291,11 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       });
       
       router.push(`/eventos/${eventoId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar evento:', error);
       // Verificar o tipo de error antes de acessar a propriedade message
-      setError(`Erro ao salvar o evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setError(`Erro ao salvar o evento: ${errorMessage}`);
       setEnviando(false);
     }
   };
@@ -321,7 +318,7 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       }
       
       return null; // Lutador não encontrado
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao buscar lutador:', error);
       return null;
     }
@@ -329,21 +326,21 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
 
   const carregarLutadoresCadastrados = async () => {
     try {
-      const data = await fetchWithMultipleAttempts('lutadores', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then(res => res.json());
+      console.log('Carregando lista de lutadores cadastrados...');
       
-      // Extrair apenas os nomes dos lutadores e convertê-los para minúsculas para facilitar a comparação
+      // Usar a função apiGet para carregar os lutadores
+      const data = await apiGet('lutadores');
+      
+      // Processar os dados
+      console.log(`${data.length} lutadores carregados`);
       const nomes = data.map((lutador: any) => lutador.nome.toLowerCase().trim());
       setLutadoresCadastrados(nomes);
       
       return data;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao carregar lutadores cadastrados:', error);
-      setError(`Erro ao carregar lutadores: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setError(`Erro ao carregar lutadores: ${errorMessage}`);
       return [];
     }
   };
@@ -404,9 +401,10 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       
       // Fechar o modal
       closeModal();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao cadastrar lutador:', error);
-      alert(`Erro ao cadastrar lutador: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao cadastrar lutador: ${errorMessage}`);
     }
   };
 
@@ -420,26 +418,12 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
     try {
       console.log('Carregando evento com ID:', id);
       
-      // Usar abordagem simplificada com fetch direto
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/eventos/${id}`;
+      // Usar a função apiGet para carregar o evento
+      const url = `eventos/${id}`;
       console.log(`Fazendo requisição para URL: ${url}`);
       
-      const eventoResponse = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        mode: 'cors',
-        cache: 'no-store',
-        credentials: 'omit'
-      });
-      
-      if (!eventoResponse.ok) {
-        throw new Error(`Erro HTTP ${eventoResponse.status} ao carregar evento`);
-      }
-      
-      const eventoData = await eventoResponse.json();
+      // Usar a função apiGet
+      const eventoData = await apiGet(url);
       
       if (!eventoData) {
         throw new Error('Evento não encontrado');
@@ -463,25 +447,11 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       console.log('Evento carregado:', eventoData);
       
       // Carregar as lutas do evento
-      const lutasUrl = `${process.env.NEXT_PUBLIC_API_URL}/eventos/${id}/lutas`;
+      const lutasUrl = `eventos/${id}/lutas`;
       console.log(`Fazendo requisição para lutas: ${lutasUrl}`);
       
-      const lutasResponse = await fetch(lutasUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        mode: 'cors',
-        cache: 'no-store',
-        credentials: 'omit'
-      });
-      
-      if (!lutasResponse.ok) {
-        throw new Error(`Erro HTTP ${lutasResponse.status} ao carregar lutas`);
-      }
-      
-      const lutasData = await lutasResponse.json();
+      // Usar a função apiGet para carregar as lutas
+      const lutasData = await apiGet(lutasUrl);
       
       console.log('Lutas carregadas:', lutasData);
       
@@ -493,22 +463,21 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       await carregarLutadoresCadastrados();
       
       setLoading(false);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao carregar evento:', error);
       
       try {
-        // Tentar fallback com localhost
-        console.log('Tentando URL alternativa com localhost...');
+        // Tentar fallback com URL alternativa
+        console.log('Tentando URL alternativa...');
         
-        const fallbackUrl = `http://localhost:3334/eventos/${id}`;
+        // Construir o fallback URL usando a API na porta 3334
+        const fallbackBaseUrl = apiConfig.baseUrl.replace(':3002', ':3334').replace('3002', '3334');
+        const fallbackUrl = `${fallbackBaseUrl}/eventos/${id}`;
         console.log(`Tentando fallback: ${fallbackUrl}`);
         
         const altEventoResponse = await fetch(fallbackUrl, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers: apiConfig.headers,
           mode: 'cors',
           cache: 'no-store',
           credentials: 'omit'
@@ -542,15 +511,12 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
         console.log('Evento carregado via fallback:', eventoData);
         
         // Carregar as lutas do evento
-        const altLutasUrl = `http://localhost:3334/eventos/${id}/lutas`;
+        const altLutasUrl = `${fallbackBaseUrl}/eventos/${id}/lutas`;
         console.log(`Tentando fallback para lutas: ${altLutasUrl}`);
         
         const altLutasResponse = await fetch(altLutasUrl, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers: apiConfig.headers,
           mode: 'cors',
           cache: 'no-store',
           credentials: 'omit'
@@ -572,9 +538,10 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
         await carregarLutadoresCadastrados();
         
         setLoading(false);
-      } catch (fallbackError) {
+      } catch (fallbackError: unknown) {
         console.error('Erro também no fallback:', fallbackError);
-        setError(`Erro ao carregar o evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        setError(`Erro ao carregar o evento: ${errorMessage}`);
         setRetryButton(
           <button 
             onClick={() => carregarEvento(id)} 

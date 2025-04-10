@@ -134,13 +134,14 @@ export default async function RankingPage({
         corBackgroundMap={rankingColorClassMap}
       />
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`Erro ao buscar ranking para ${categoria}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return (
       <div>
         <h2 className="text-2xl font-bold mb-4">Ranking: {categoria}</h2>
         <p className="text-red-500">Erro ao carregar o ranking. Tente novamente mais tarde.</p>
-        <p className="text-red-500">Erro: {error instanceof Error ? error.message : String(error)}</p>
+        <p className="text-red-500">Erro: {errorMessage}</p>
       </div>
     );
   }

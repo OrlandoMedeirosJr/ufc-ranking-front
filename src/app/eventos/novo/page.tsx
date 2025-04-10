@@ -584,13 +584,13 @@ export default function NovoEventoPage() {
         }
       } catch (error) {
         console.error('Erro ao processar a requisição:', error);
-        setError(`Falha ao criar evento: ${error.message}`);
+        setError(`Falha ao criar evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setLoading(false);
       }
     } catch (error) {
       console.error('Erro ao processar a requisição:', error);
-      setError(`Falha ao criar evento: ${error.message}`);
+      setError(`Falha ao criar evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -683,7 +683,7 @@ export default function NovoEventoPage() {
           console.log('Lutador cadastrado com sucesso:', lutadorSalvo);
         } catch (jsonError) {
           console.error('Erro ao parsear resposta JSON:', jsonError);
-          throw new Error(`Falha ao processar resposta do servidor: ${jsonError.message}`);
+          throw new Error(`Falha ao processar resposta do servidor: ${jsonError instanceof Error ? jsonError.message : 'Erro desconhecido'}`);
         }
         
         // Adicionar à lista de lutadores conhecidos - com verificação de segurança
@@ -757,10 +757,10 @@ export default function NovoEventoPage() {
       
     } catch (error) {
       console.error('Erro ao cadastrar lutador:', error);
-      setError(`Falha ao cadastrar lutador: ${error.message}`);
+      setError(`Falha ao cadastrar lutador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
       // Exibir alerta para garantir que o usuário veja o erro
-      alert(`Erro ao cadastrar lutador: ${error.message}`);
+      alert(`Erro ao cadastrar lutador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
@@ -853,7 +853,7 @@ export default function NovoEventoPage() {
       }
     } catch (err) {
       console.error('Erro no teste:', err);
-      setError(`Erro no teste: ${err.message}`);
+      setError(`Erro no teste: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
