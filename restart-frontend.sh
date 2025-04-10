@@ -1,17 +1,21 @@
 #!/bin/bash
 
+# Parando todos os processos do Next.js...
 echo "Parando todos os processos do Next.js..."
-pkill -f "next dev" || true
+pkill -f "next" || true
+pkill -f "node.*next" || true
+sleep 2
 
+# Removendo arquivos de cache...
 echo "Removendo arquivos de cache..."
 rm -rf .next
 rm -rf node_modules/.cache
 
+# Reinstalando dependências críticas...
 echo "Reinstalando dependências críticas..."
-npm install tailwind-merge@latest --save
-npm install @radix-ui/react-tabs@latest --save
-npm install clsx@latest --save
-npm install class-variance-authority@latest --save
+npm i next@latest react@latest react-dom@latest
+npm i
 
-echo "Iniciando o servidor sem turbopack..."
-npm run dev -- --no-turbo 
+# Iniciando o servidor...
+echo "Iniciando o servidor..."
+PORT=3000 NEXT_PUBLIC_API_URL=http://localhost:3002 NEXT_PUBLIC_BACKEND_URL=http://localhost:3002 npm run dev 

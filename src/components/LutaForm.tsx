@@ -277,22 +277,24 @@ const LutaForm: React.FC<LutaFormProps> = ({
         setCarregandoInfo2(true);
       }
       
-      // Importar buildApiUrl de config/api
-      const { buildApiUrl } = await import('@/config/api');
-      
       // Criar um controller para abortar a requisição se demorar muito
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Aumentado para 8 segundos
       
       try {
-        const apiUrl = buildApiUrl(`lutadores/${encodeURIComponent(nome)}/info-ranking`);
+        // URL direta para a API em vez de usar buildApiUrl
+        const apiUrl = `http://localhost:3334/lutadores/${encodeURIComponent(nome)}/info-ranking`;
         console.log(`Buscando informações do lutador ${nome} na URL: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           signal: controller.signal,
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
         });
         
         clearTimeout(timeoutId);
@@ -319,16 +321,62 @@ const LutaForm: React.FC<LutaFormProps> = ({
           setInfoLutador2(data);
         }
       } catch (err) {
-        if (err.name === 'AbortError') {
-          console.warn(`Requisição de info-ranking para ${nome} cancelada por timeout`);
-        } else {
-          console.error(`Erro na requisição de info-ranking para ${nome}:`, err);
-          // Armazenar dados vazios para evitar novas tentativas
-          if (lutadorNumero === 1) {
-            setInfoLutador1({} as InfoRanking);
-          } else {
-            setInfoLutador2({} as InfoRanking);
+        console.error(`Erro na requisição de info-ranking para ${nome}:`, err);
+        
+        // Tentar fallback com uma requisição básica de busca de lutador
+        try {
+          const fallbackUrl = `http://localhost:3334/lutadores?nome=${encodeURIComponent(nome)}`;
+          console.log(`Tentativa de fallback para ${nome} usando: ${fallbackUrl}`);
+          
+          const fallbackResponse = await fetch(fallbackUrl, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (fallbackResponse.ok) {
+            const lutadores = await fallbackResponse.json();
+            if (lutadores && lutadores.length > 0) {
+              // Criar um objeto InfoRanking simplificado apenas com dados básicos
+              const infoSimples: InfoRanking = {
+                lutador: {
+                  id: lutadores[0].id,
+                  nome: lutadores[0].nome,
+                  categoriaAtual: lutadores[0].categoriaAtual || 'Desconhecida'
+                },
+                ranking: {
+                  pesoPorPeso: null,
+                  categoria: null
+                },
+                sequencia: {
+                  tipo: '',
+                  quantidade: 0,
+                  descricao: ''
+                }
+              };
+              
+              if (lutadorNumero === 1) {
+                setInfoLutador1(infoSimples);
+              } else {
+                setInfoLutador2(infoSimples);
+              }
+              console.log(`Informações básicas encontradas para ${nome}`);
+              return;
+            }
           }
+        } catch (fallbackErr) {
+          console.error(`Fallback também falhou para ${nome}:`, fallbackErr);
+        }
+        
+        // Se chegou aqui, ambas as tentativas falharam - armazenar dados vazios
+        if (lutadorNumero === 1) {
+          setInfoLutador1({} as InfoRanking);
+        } else {
+          setInfoLutador2({} as InfoRanking);
         }
       }
     } catch (error) {

@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Modal from 'react-modal';
-import React from 'react';
+import React, { use } from 'react';
 import LutaForm, { Luta } from '@/components/LutaForm';
-import { buildApiUrl } from '@/config/api';
+import { buildApiUrl, apiGet, apiPut, apiPost } from '@/config/api';
+import { useToast } from "@/components/ui/use-toast";
 
 interface Evento {
   id: number;
@@ -21,18 +22,21 @@ interface Evento {
   payPerView?: number;
 }
 
-export default async function EditarEventoPage({ params }: { params: { id: string } }) {
-  // Usar await para "unwrap" os parâmetros, conforme exigido pelo Next.js 15
-  const unwrappedParams = await params;
-  const id = unwrappedParams.id;
+export default function EditarEventoPage({ params }: { params: { id: string } }) {
+  // Desempacotar params no nível superior, fora de qualquer bloco try/catch
+  const unwrappedParams = use(params);
+  const eventIdFromParams = unwrappedParams.id;
   
   const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutadoresCadastrados, setLutadoresCadastrados] = useState<string[]>([]);
   const [lutadorEmVerificacao, setLutadorEmVerificacao] = useState<{nome: string, index: number, campo: 'lutador1' | 'lutador2'} | null>(null);
+  const [eventoId, setEventoId] = useState<string>(eventIdFromParams || "");
+  const [retryButton, setRetryButton] = useState<React.ReactNode | null>(null);
   
   // Configurar Modal para acessibilidade após montagem do componente
   useEffect(() => {
@@ -57,83 +61,76 @@ export default async function EditarEventoPage({ params }: { params: { id: strin
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [novoLutador, setNovoLutador] = useState({ nome: '', pais: '', sexo: 'Masculino' });
 
+  // Função utilitária para tentar múltiplas URLs da API
+  const fetchWithMultipleAttempts = async (path: string, options: RequestInit) => {
+    // Usar diretamente URLs explícitas para maior confiabilidade
+    const baseUrl = 'http://127.0.0.1:3334';
+    const url = `${baseUrl}/${path.startsWith('/') ? path.substring(1) : path}`;
+    
+    console.log(`Tentando requisição para URL explícita (IP): ${url}`);
+    
+    try {
+      // Adicionar opções padrão para melhorar a comunicação com a API
+      const fetchOptions = {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          ...options.headers
+        },
+        mode: 'cors' as RequestMode,
+        credentials: 'omit' as RequestCredentials,
+        cache: 'no-store' as RequestCache
+      };
+      
+      const response = await fetch(url, fetchOptions);
+      if (!response.ok) {
+        throw new Error(`Erro HTTP ${response.status} ao chamar ${url}`);
+      }
+      return response;
+    } catch (error) {
+      console.error(`Erro ao chamar ${url}:`, error);
+      
+      // Tentar um fallback direto com localhost
+      try {
+        const fallbackUrl = `http://localhost:3334/${path.startsWith('/') ? path.substring(1) : path}`;
+        console.log(`Tentando fallback com localhost: ${fallbackUrl}`);
+        
+        const fallbackResponse = await fetch(fallbackUrl, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+            ...options.headers
+          },
+          mode: 'cors' as RequestMode,
+          credentials: 'omit' as RequestCredentials,
+          cache: 'no-store' as RequestCache
+        });
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Erro HTTP ${fallbackResponse.status} ao chamar fallback ${fallbackUrl}`);
+        }
+        
+        return fallbackResponse;
+      } catch (fallbackError) {
+        console.error(`Erro também no fallback:`, fallbackError);
+        throw fallbackError;
+      }
+    }
+  };
+
   // Carregar dados do evento e lutas
   useEffect(() => {
-    const carregarEvento = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Carregar evento - este endpoint já retorna as lutas dentro do objeto evento
-        const eventoResponse = await fetch(buildApiUrl(`eventos/${id}`));
-        if (!eventoResponse.ok) {
-          throw new Error(`Erro ao carregar evento: ${eventoResponse.status}`);
-        }
-        
-        const eventoData = await eventoResponse.json();
-        setEvento(eventoData);
-        
-        // Atualizar o formulário com os dados do evento
-        setFormData({
-          nome: eventoData.nome || '',
-          data: eventoData.data ? new Date(eventoData.data).toISOString().split('T')[0] : '',
-          local: eventoData.local || '',
-          pais: eventoData.pais || '',
-          finalizado: eventoData.finalizado || false,
-          publicoTotal: eventoData.publicoTotal?.toString() || '',
-          arrecadacao: eventoData.arrecadacao?.toString() || '',
-          payPerView: eventoData.payPerView?.toString() || ''
-        });
-        
-        // Extrair lutas do objeto evento, já que não existe o endpoint /eventos/:id/lutas
-        const lutasDoEvento = eventoData.lutas || [];
-        setLutasOriginais(lutasDoEvento);
-        
-        // Converter para o formato da interface Luta
-        const lutasFormatadas = lutasDoEvento.map(luta => {
-            const resultado = luta.resultado?.vencedor 
-              ? luta.resultado.vencedor === 'lutadorA' ? 'V1' 
-              : luta.resultado.vencedor === 'lutadorB' ? 'V2'
-              : luta.resultado.vencedor === 'empate' ? 'Empate'
-              : 'NC'
-              : '';
-              
-            let bonus = '';
-            if (luta.resultado?.bonusLuta) bonus = 'Luta da Noite';
-            else if (luta.resultado?.bonusPerformance) bonus = 'Performance da Noite';
-            
-            return {
-              id: luta.id,
-              lutador1: luta.lutadorA.nome,
-              lutador2: luta.lutadorB.nome,
-              resultado: resultado,
-              tipo: luta.resultado?.metodo || '',
-              round: luta.resultado?.round?.toString() || '1',
-              titulo: luta.resultado?.titulo || false,
-              bonus: bonus,
-              categoria: luta.categoria || 'Não definida'
-            } as Luta;
-        });
-        
-        setLutas(lutasFormatadas);
-        
-        // Carregar lutadores cadastrados
-        const lutadoresResponse = await fetch(buildApiUrl('lutadores'));
-        if (lutadoresResponse.ok) {
-          const lutadoresData = await lutadoresResponse.json();
-          const nomes = lutadoresData.map(lutador => lutador.nome.toLowerCase().trim());
-          setLutadoresCadastrados(nomes);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    carregarEvento();
-  }, [id]);
+    // Usamos o ID extraído no nível superior do componente
+    if (eventIdFromParams) {
+      setEventoId(eventIdFromParams);
+      carregarEvento(eventIdFromParams);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
@@ -223,111 +220,127 @@ export default async function EditarEventoPage({ params }: { params: { id: strin
       // Criar um objeto com os dados do evento
       const eventoAtualizado = {
         nome: formData.nome,
+        data: formData.data || undefined,
+        local: formData.local || undefined,
+        pais: formData.pais || undefined,
         finalizado: formData.finalizado
       };
 
-      // Adicionar campos opcionais se estiverem preenchidos
-      if (formData.data) {
-        // Corrigir problema de timezone
-        // Pegar a data selecionada (YYYY-MM-DD) e criar uma data às 12:00 
-        // para evitar problemas de timezone
-        const [year, month, day] = formData.data.split('-').map(num => parseInt(num, 10));
-        const dataAjustada = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-        eventoAtualizado.data = dataAjustada.toISOString();
-        
-        console.log(`Data original: ${formData.data}`);
-        console.log(`Data ajustada: ${dataAjustada.toISOString()}`);
-      }
-
-      if (formData.local) {
-        eventoAtualizado.local = formData.local;
-      }
-
-      if (formData.pais) {
-        eventoAtualizado.pais = formData.pais;
-      }
+      // Atualizar o evento
+      console.log('Atualizando evento com ID:', eventoId);
+      console.log('Dados para atualização:', eventoAtualizado);
       
-      // Adicionar estatísticas se o evento estiver finalizado
-      if (formData.finalizado) {
-        if (formData.publicoTotal) {
-          eventoAtualizado.publicoTotal = parseInt(formData.publicoTotal, 10);
-        }
-        
-        if (formData.arrecadacao) {
-          eventoAtualizado.arrecadacao = parseFloat(formData.arrecadacao);
-        }
-        
-        if (formData.payPerView) {
-          eventoAtualizado.payPerView = parseInt(formData.payPerView, 10);
-        }
-      }
-
-      // Processar lutas para adicioná-las ao evento
-      const lutasProcessadas = lutas
-        .filter(luta => luta.lutador1 && luta.lutador2) // Filtra apenas lutas com dois lutadores
-        .map(luta => {
-          // Criar objeto base da luta
-          const lutaProcessada = {
-            id: luta.id, // Mantém o ID se já existir
-            lutadorA: { nome: luta.lutador1 },
-            lutadorB: { nome: luta.lutador2 },
-            categoria: luta.categoria || "Não definida"
-          };
-
-          // Adicionar resultado se houver
-          if (luta.resultado) {
-            let vencedor;
-            switch (luta.resultado) {
-              case 'V1': vencedor = 'lutadorA'; break;
-              case 'V2': vencedor = 'lutadorB'; break;
-              case 'Empate': vencedor = 'empate'; break;
-              case 'NC': vencedor = 'sem_resultado'; break;
-              default: vencedor = undefined;
-            }
-            
-            if (vencedor) {
-              lutaProcessada.resultado = { vencedor };
-              
-              if (luta.tipo) lutaProcessada.resultado.metodo = luta.tipo;
-              if (luta.round) lutaProcessada.resultado.round = parseInt(luta.round, 10);
-              if (luta.titulo) lutaProcessada.resultado.titulo = true;
-              if (luta.bonus === 'Luta da Noite') lutaProcessada.resultado.bonusLuta = true;
-              if (luta.bonus === 'Performance da Noite') lutaProcessada.resultado.bonusPerformance = true;
-            }
-          }
-          
-          return lutaProcessada;
-        });
-
-      // Adicionar lutas ao evento
-      eventoAtualizado.lutas = lutasProcessadas;
-
-      // Atualizar evento
-      const API_URL = buildApiUrl(`eventos/${id}`);
-      const eventoRes = await fetch(API_URL, {
+      // Usar função robusta para comunicação com a API
+      const eventoResponse = await fetchWithMultipleAttempts(`eventos/${eventoId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(eventoAtualizado)
       });
 
-      if (!eventoRes.ok) {
-        throw new Error(`Erro ao atualizar evento: ${eventoRes.status}`);
+      // Processar as lutas
+      for (const luta of lutas) {
+        // Certifique-se de que os nomes dos lutadores estão corretos
+        if (!luta.lutador1 || !luta.lutador2) {
+          continue; // Pular lutas sem lutadores definidos
+        }
+
+        const lutaData = {
+          lutador1: luta.lutador1,
+          lutador2: luta.lutador2,
+          eventoId: parseInt(eventoId),
+          resultado: luta.resultado || undefined,
+          tipo: luta.tipo || undefined,
+          round: luta.round || '1',
+          titulo: luta.titulo || false,
+          bonus: luta.bonus || undefined,
+          categoria: luta.categoria || undefined
+        };
+
+        // Criar ou atualizar a luta dependendo se ela tem ID
+        if (luta.id) {
+          await fetchWithMultipleAttempts(`lutas/${luta.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(lutaData)
+          });
+        } else {
+          await fetchWithMultipleAttempts('lutas', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(lutaData)
+          });
+        }
       }
+
+      // Redirecionar para a página de detalhes do evento após sucesso
+      toast({
+        title: "Evento atualizado",
+        description: "O evento foi atualizado com sucesso",
+      });
       
-      console.log('Evento atualizado com sucesso');
-      
-      // Sucesso! Redirecionar para a página do evento
-      router.push(`/eventos/${id}`);
-      router.refresh();
+      router.push(`/eventos/${eventoId}`);
     } catch (error) {
-      console.error('Erro ao enviar formulário:', error);
-      setError(error.message);
+      console.error('Erro ao salvar evento:', error);
+      setError(`Erro ao salvar o evento: ${error.message}`);
       setEnviando(false);
     }
   };
 
+  const buscarOuCriarLutador = async (nome: string) => {
+    try {
+      // Primeiro, tenta buscar o lutador pelo nome exato
+      const response = await fetchWithMultipleAttempts(`lutadores/buscar?nome=${encodeURIComponent(nome)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        // Lutador encontrado
+        return data[0].nome;
+      }
+      
+      return null; // Lutador não encontrado
+    } catch (error) {
+      console.error('Erro ao buscar lutador:', error);
+      return null;
+    }
+  };
+
+  const carregarLutadoresCadastrados = async () => {
+    try {
+      const data = await fetchWithMultipleAttempts('lutadores', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then(res => res.json());
+      
+      // Extrair apenas os nomes dos lutadores e convertê-los para minúsculas para facilitar a comparação
+      const nomes = data.map((lutador: any) => lutador.nome.toLowerCase().trim());
+      setLutadoresCadastrados(nomes);
+      
+      return data;
+    } catch (error) {
+      console.error('Erro ao carregar lutadores cadastrados:', error);
+      setError(`Erro ao carregar lutadores: ${error.message}`);
+      return [];
+    }
+  };
+
+  // Função para abrir o modal
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => {
     setModalIsOpen(false);
@@ -341,370 +354,484 @@ export default async function EditarEventoPage({ params }: { params: { id: strin
 
   const handleCadastrarLutador = async () => {
     try {
-      setEnviando(true);
-      
-      // Validação
+      // Validação básica
       if (!novoLutador.nome || !novoLutador.pais) {
-        setError('Nome e país são obrigatórios');
+        alert('Por favor, preencha todos os campos do lutador.');
         return;
       }
-      
-      // Enviar para o backend
-      const response = await fetch(buildApiUrl('lutadores'), {
+
+      // Enviar requisição para cadastrar o lutador
+      const response = await fetchWithMultipleAttempts('lutadores', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(novoLutador)
+        body: JSON.stringify(novoLutador),
       });
-      
+
       if (!response.ok) {
         throw new Error(`Erro ao cadastrar lutador: ${response.status}`);
       }
+
+      const lutadorCadastrado = await response.json();
       
-      const data = await response.json();
-      console.log('Lutador cadastrado:', data);
-      
-      // Adicionar o novo lutador à lista de lutadores cadastrados
+      // Atualizar a lista de lutadores cadastrados
       setLutadoresCadastrados(prev => [...prev, novoLutador.nome.toLowerCase().trim()]);
       
-      // Se estava verificando um lutador específico, atualizar o valor na luta
+      // Se há um lutador em verificação, atualizar a luta correspondente
       if (lutadorEmVerificacao) {
         const { index, campo } = lutadorEmVerificacao;
-        setLutas(prev => {
-          const newLutas = [...prev];
-          // O nome já está definido, então não precisamos alterar novamente
+        setLutas(prevLutas => {
+          const newLutas = [...prevLutas];
+          newLutas[index] = { ...newLutas[index], [campo]: novoLutador.nome };
           return newLutas;
         });
       }
       
+      toast({
+        title: "Lutador cadastrado",
+        description: `${novoLutador.nome} foi cadastrado com sucesso`,
+        duration: 3000,
+      });
+      
+      // Fechar o modal
       closeModal();
     } catch (error) {
       console.error('Erro ao cadastrar lutador:', error);
-      setError(error.message);
-    } finally {
-      setEnviando(false);
-      closeModal();
+      alert(`Erro ao cadastrar lutador: ${error.message}`);
     }
   };
 
-  // Lista de países para o select
-  const paises = [
-    'Brasil', 'EUA', 'Canadá', 'México', 
-    'Argentina', 'Reino Unido', 'França', 'Alemanha', 
-    'Espanha', 'Itália', 'Portugal', 'Rússia', 
-    'China', 'Japão', 'Austrália', 'Emirados Árabes Unidos'
-  ].sort();
+  const carregarEvento = async (id: string) => {
+    if (!id) {
+      setError('ID do evento não encontrado');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Carregando evento com ID:', id);
+      
+      // Usar abordagem simplificada com fetch direto
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/eventos/${id}`;
+      console.log(`Fazendo requisição para URL: ${url}`);
+      
+      const eventoResponse = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit'
+      });
+      
+      if (!eventoResponse.ok) {
+        throw new Error(`Erro HTTP ${eventoResponse.status} ao carregar evento`);
+      }
+      
+      const eventoData = await eventoResponse.json();
+      
+      if (!eventoData) {
+        throw new Error('Evento não encontrado');
+      }
+      
+      // Configurar o estado do evento
+      setEvento(eventoData);
+      
+      // Configurar os dados do formulário
+      setFormData({
+        nome: eventoData.nome || '',
+        data: eventoData.data ? new Date(eventoData.data).toISOString().split('T')[0] : '',
+        local: eventoData.local || '',
+        pais: eventoData.pais || '',
+        finalizado: eventoData.finalizado || false,
+        publicoTotal: eventoData.publicoTotal || '',
+        arrecadacao: eventoData.arrecadacao || '',
+        payPerView: eventoData.payPerView || ''
+      });
+      
+      console.log('Evento carregado:', eventoData);
+      
+      // Carregar as lutas do evento
+      const lutasUrl = `${process.env.NEXT_PUBLIC_API_URL}/eventos/${id}/lutas`;
+      console.log(`Fazendo requisição para lutas: ${lutasUrl}`);
+      
+      const lutasResponse = await fetch(lutasUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit'
+      });
+      
+      if (!lutasResponse.ok) {
+        throw new Error(`Erro HTTP ${lutasResponse.status} ao carregar lutas`);
+      }
+      
+      const lutasData = await lutasResponse.json();
+      
+      console.log('Lutas carregadas:', lutasData);
+      
+      // Configurar o estado das lutas (reversão da ordem para mostrar as mais recentes primeiro)
+      setLutas(Array.isArray(lutasData) && lutasData.length > 0 ? [...lutasData].reverse() : []);
+      setLutasOriginais(Array.isArray(lutasData) ? [...lutasData] : []);
+      
+      // Carregar lutadores cadastrados para verificação
+      await carregarLutadoresCadastrados();
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Erro ao carregar evento:', error);
+      
+      try {
+        // Tentar fallback com localhost
+        console.log('Tentando URL alternativa com localhost...');
+        
+        const fallbackUrl = `http://localhost:3334/eventos/${id}`;
+        console.log(`Tentando fallback: ${fallbackUrl}`);
+        
+        const altEventoResponse = await fetch(fallbackUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors',
+          cache: 'no-store',
+          credentials: 'omit'
+        });
+        
+        if (!altEventoResponse.ok) {
+          throw new Error(`Erro HTTP ${altEventoResponse.status} ao carregar evento via URL alternativa`);
+        }
+        
+        const eventoData = await altEventoResponse.json();
+        
+        if (!eventoData) {
+          throw new Error('Evento não encontrado');
+        }
+        
+        // Configurar o estado do evento
+        setEvento(eventoData);
+        
+        // Configurar os dados do formulário
+        setFormData({
+          nome: eventoData.nome || '',
+          data: eventoData.data ? new Date(eventoData.data).toISOString().split('T')[0] : '',
+          local: eventoData.local || '',
+          pais: eventoData.pais || '',
+          finalizado: eventoData.finalizado || false,
+          publicoTotal: eventoData.publicoTotal || '',
+          arrecadacao: eventoData.arrecadacao || '',
+          payPerView: eventoData.payPerView || ''
+        });
+        
+        console.log('Evento carregado via fallback:', eventoData);
+        
+        // Carregar as lutas do evento
+        const altLutasUrl = `http://localhost:3334/eventos/${id}/lutas`;
+        console.log(`Tentando fallback para lutas: ${altLutasUrl}`);
+        
+        const altLutasResponse = await fetch(altLutasUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors',
+          cache: 'no-store',
+          credentials: 'omit'
+        });
+        
+        if (!altLutasResponse.ok) {
+          throw new Error(`Erro HTTP ${altLutasResponse.status} ao carregar lutas via URL alternativa`);
+        }
+        
+        const lutasData = await altLutasResponse.json();
+        
+        console.log('Lutas carregadas via fallback:', lutasData);
+        
+        // Configurar o estado das lutas (reversão da ordem para mostrar as mais recentes primeiro)
+        setLutas(Array.isArray(lutasData) && lutasData.length > 0 ? [...lutasData].reverse() : []);
+        setLutasOriginais(Array.isArray(lutasData) ? [...lutasData] : []);
+        
+        // Carregar lutadores cadastrados para verificação
+        await carregarLutadoresCadastrados();
+        
+        setLoading(false);
+      } catch (fallbackError) {
+        console.error('Erro também no fallback:', fallbackError);
+        setError(`Erro ao carregar o evento: ${error.message}`);
+        setRetryButton(
+          <button 
+            onClick={() => carregarEvento(id)} 
+            className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Tentar Novamente
+          </button>
+        );
+        setLoading(false);
+      }
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Carregando evento...</h1>
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 p-4 rounded border border-red-200 text-red-700">
-        <h2 className="text-lg font-bold mb-2">Erro</h2>
-        <p>{error}</p>
-        <Link href="/eventos" className="mt-4 inline-block text-blue-600 hover:underline">
-          Voltar para lista de eventos
-        </Link>
-      </div>
-    );
-  }
-
-  if (!evento) {
-    return (
-      <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-yellow-700">
-        <h2 className="text-lg font-bold mb-2">Evento não encontrado</h2>
-        <p>O evento solicitado não foi encontrado.</p>
-        <Link href="/eventos" className="mt-4 inline-block text-blue-600 hover:underline">
-          Voltar para lista de eventos
-        </Link>
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Erro</h1>
+        <p className="text-red-500">{error}</p>
+        {retryButton}
+        <div className="mt-4">
+          <Link href="/eventos" className="text-blue-500 hover:underline">
+            Voltar para a lista de eventos
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link href={`/eventos/${id}`} className="text-blue-600 hover:underline">
-          ← Voltar para detalhes do evento
-        </Link>
-      </div>
-
-      <h2 className="text-2xl font-bold mb-6">Editar Evento</h2>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded border border-red-300">
-          <h3 className="font-bold mb-2">Erro ao salvar alterações</h3>
-          <p className="mb-2">{error}</p>
-          <div className="flex gap-2">
-            <button 
-              type="button"
-              onClick={() => setError(null)}
-              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="max-w-2xl">
-        <div className="mb-4">
-          <label className="block mb-2 font-medium" htmlFor="nome">
-            Nome do Evento <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="nome"
-            name="nome"
-            value={formData.nome}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            placeholder="Ex: UFC 310: Silva vs. Thompson"
-            required
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-2 font-medium" htmlFor="data">
-            Data
-          </label>
-          <input
-            type="date"
-            id="data"
-            name="data"
-            value={formData.data}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-2 font-medium" htmlFor="local">
-            Local
-          </label>
-          <input
-            type="text"
-            id="local"
-            name="local"
-            value={formData.local}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            placeholder="Ex: T-Mobile Arena, Las Vegas"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-2 font-medium" htmlFor="pais">
-            País
-          </label>
-          <select
-            id="pais"
-            name="pais"
-            value={formData.pais}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">Selecione um país</option>
-            {paises.map((pais) => (
-              <option key={pais} value={pais}>
-                {pais}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mb-4 flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="finalizado"
-            name="finalizado"
-            checked={formData.finalizado}
-            onChange={handleChange}
-            className="w-4 h-4"
-          />
-          <label className="font-medium" htmlFor="finalizado">
-            Evento finalizado
-          </label>
-        </div>
-
-        {formData.finalizado && (
-          <div className="mb-6 p-4 bg-gray-50 rounded border">
-            <h3 className="text-lg font-bold mb-3">Estatísticas do Evento</h3>
-            <p className="text-sm text-gray-500 mb-3">Preencha os dados de estatísticas do evento após sua realização.</p>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Editar Evento</h1>
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4">Informações do Evento</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Evento*</label>
+              <input
+                type="text"
+                name="nome"
+                value={formData.nome}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block mb-2 font-medium" htmlFor="publicoTotal">
-                  Público Total
-                </label>
-                <input
-                  type="number"
-                  id="publicoTotal"
-                  name="publicoTotal"
-                  value={formData.publicoTotal}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded"
-                  placeholder="Ex: 18500"
-                />
-              </div>
-              
-              <div>
-                <label className="block mb-2 font-medium" htmlFor="arrecadacao">
-                  Arrecadação (USD)
-                </label>
-                <input
-                  type="number"
-                  id="arrecadacao"
-                  name="arrecadacao"
-                  value={formData.arrecadacao}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded"
-                  placeholder="Ex: 4500000"
-                />
-              </div>
-              
-              <div>
-                <label className="block mb-2 font-medium" htmlFor="payPerView">
-                  Vendas Pay-Per-View
-                </label>
-                <input
-                  type="number"
-                  id="payPerView"
-                  name="payPerView"
-                  value={formData.payPerView}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded"
-                  placeholder="Ex: 750000"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <input
+                type="date"
+                name="data"
+                value={formData.data}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
             </div>
           </div>
-        )}
-
-        <div className="mb-4">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
+              <input
+                type="text"
+                name="local"
+                value={formData.local}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <input
+                type="text"
+                name="pais"
+                value={formData.pais}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="flex items-center mt-6">
+              <input
+                type="checkbox"
+                name="finalizado"
+                checked={formData.finalizado}
+                onChange={handleChange}
+                className="h-4 w-4 text-blue-600"
+              />
+              <label className="ml-2 block text-sm font-medium text-gray-700">
+                Evento Finalizado
+              </label>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Público Total</label>
+              <input
+                type="number"
+                name="publicoTotal"
+                value={formData.publicoTotal}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Arrecadação (USD)</label>
+              <input
+                type="number"
+                name="arrecadacao"
+                value={formData.arrecadacao}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pay-Per-View (USD)</label>
+              <input
+                type="number"
+                name="payPerView"
+                value={formData.payPerView}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-md lutas-section">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Lutas do Evento</h3>
-            <button 
-              type="button" 
-              onClick={adicionarLuta} 
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+            <h2 className="text-xl font-semibold">Lutas do Evento</h2>
+            <button
+              type="button"
+              onClick={adicionarLuta}
+              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
             >
-              + Adicionar Luta
+              Adicionar Luta
             </button>
           </div>
           
-          {lutas.length === 0 && (
-            <p className="text-gray-500 italic">Nenhuma luta cadastrada. Clique em "Adicionar Luta" para começar.</p>
+          {lutas.length === 0 ? (
+            <p className="text-gray-500 italic">Nenhuma luta cadastrada para este evento.</p>
+          ) : (
+            <div className="space-y-6">
+              {lutas.map((luta, index) => (
+                <div key={index} className="border border-gray-200 p-4 rounded-md relative">
+                  <button
+                    type="button"
+                    onClick={() => removerLuta(index)}
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                  >
+                    X
+                  </button>
+                  
+                  <LutaForm 
+                    luta={luta} 
+                    index={index} 
+                    onChange={handleLutaChange} 
+                  />
+                </div>
+              ))}
+            </div>
           )}
-          
-          <div className="lutas-section">
-            {lutas.map((luta, index) => (
-              <LutaForm 
-                key={luta.id || index}
-                luta={luta}
-                index={index}
-                onChange={handleLutaChange}
-                onRemove={removerLuta}
-              />
-            ))}
-          </div>
         </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={enviando}
-            className={`px-4 py-2 bg-blue-600 text-white rounded ${
-              enviando ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'
-            } transition-colors`}
-          >
-            {enviando ? 'Salvando...' : 'Salvar Alterações'}
-          </button>
-          
+        
+        <div className="flex justify-between">
           <Link
-            href={`/eventos/${id}`}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+            href={`/eventos/${eventoId}`}
+            className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
           >
             Cancelar
           </Link>
+          
+          <button
+            type="submit"
+            disabled={enviando}
+            className={`${
+              enviando ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'
+            } text-white py-2 px-4 rounded`}
+          >
+            {enviando ? 'Salvando...' : 'Salvar Evento'}
+          </button>
         </div>
       </form>
-
+      
       <Modal
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
-        contentLabel="Cadastrar Novo Lutador"
-        style={{
-          content: {
-            top: '50%',
-            left: '50%',
-            right: 'auto',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)',
-            padding: '20px',
-            maxWidth: '500px',
-            width: '100%'
-          },
-          overlay: {
-            backgroundColor: 'rgba(0, 0, 0, 0.75)'
-          }
-        }}
+        className="fixed inset-0 flex items-center justify-center"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50"
       >
-        <h2 className="text-xl font-bold mb-4">
-          {lutadorEmVerificacao 
-            ? `Cadastrar Lutador: ${lutadorEmVerificacao.nome}` 
-            : 'Cadastrar Novo Lutador'
-          }
-        </h2>
-        <div className="space-y-3">
-          <input
-            type="text"
-            name="nome"
-            value={novoLutador.nome}
-            onChange={handleNovoLutadorChange}
-            placeholder="Nome do Lutador"
-            className="w-full p-2 border rounded"
-            disabled={!!lutadorEmVerificacao}
-          />
-          <input
-            type="text"
-            name="pais"
-            value={novoLutador.pais}
-            onChange={handleNovoLutadorChange}
-            placeholder="País"
-            className="w-full p-2 border rounded"
-            required
-          />
-          <select
-            name="sexo"
-            value={novoLutador.sexo}
-            onChange={handleNovoLutadorChange}
-            className="w-full p-2 border rounded"
-          >
-            <option value="Masculino">Masculino</option>
-            <option value="Feminino">Feminino</option>
-          </select>
+        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4">Cadastrar Novo Lutador</h2>
           
-          <div className="flex gap-2 mt-4">
-            <button 
-              onClick={handleCadastrarLutador}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            >
-              Cadastrar
-            </button>
-            <button 
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+              <input
+                type="text"
+                name="nome"
+                value={novoLutador.nome}
+                onChange={handleNovoLutadorChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <input
+                type="text"
+                name="pais"
+                value={novoLutador.pais}
+                onChange={handleNovoLutadorChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
+              <select
+                name="sexo"
+                value={novoLutador.sexo}
+                onChange={handleNovoLutadorChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2 mt-6">
+            <button
+              type="button"
               onClick={closeModal}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+              className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
             >
               Cancelar
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleCadastrarLutador}
+              className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+            >
+              Cadastrar
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import RankingTable from "@/components/RankingTable";
 import { rankingColorClassMap } from "@/utils/rankingColors";
+import { apiConfig } from "@/config/api";
 
 interface Lutador {
   nome: string;
@@ -24,15 +25,12 @@ export default async function RankingPage({
 }: { 
   params: { categoria: string } 
 }) {
-  // Em vez de acessar diretamente, vamos usar await nos parâmetros
-  const categoriaParam = await params?.categoria;
-  
   // Verificar se temos uma categoria válida
-  if (!categoriaParam) {
+  if (!params?.categoria) {
     return notFound();
   }
   
-  const categoria = decodeURIComponent(categoriaParam);
+  const categoria = decodeURIComponent(params.categoria);
   
   // Mapeamento de slugs para nomes de categorias no formato que o backend espera
   const categoriasMap: Record<string, string> = {
@@ -55,9 +53,9 @@ export default async function RankingPage({
   const categoriaFormatada = categoriasMap[categoria] || categoria;
   
   try {
-    // URL direta para a API de ranking
-    const apiUrl = `http://localhost:3334/ranking/${encodeURIComponent(categoriaFormatada)}`;
-    console.log(`Buscando ranking diretamente: ${apiUrl}`);
+    // URL para a API de ranking usando a configuração centralizada
+    const apiUrl = `${apiConfig.baseUrl}/ranking/${encodeURIComponent(categoriaFormatada)}`;
+    console.log(`Buscando ranking: ${apiUrl}`);
     
     const res = await fetch(apiUrl, {
       method: 'GET',
@@ -75,7 +73,7 @@ export default async function RankingPage({
       
       // Tentativa alternativa para o caso de problemas com encoding
       console.log('Tentando abordagem alternativa com encoding diferente...');
-      const alternativeUrl = `http://localhost:3334/ranking/${encodeURIComponent(categoriaFormatada).replace(/%20/g, '+')}`;
+      const alternativeUrl = `${apiConfig.baseUrl}/ranking/${encodeURIComponent(categoriaFormatada).replace(/%20/g, '+')}`;
       console.log(`URL alternativa: ${alternativeUrl}`);
       
       try {

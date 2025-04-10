@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
+import { apiConfig } from "@/config/api";
 
 interface RecordeInfo {
   tipo: string;
@@ -16,9 +17,9 @@ interface RecordeInfo {
 
 export default async function RecordesPage() {
   try {
-    // URL direta para a API de recordes
-    const url = 'http://localhost:3334/recordes';
-    console.log(`Buscando recordes diretamente: ${url}`);
+    // URL usando a configuração centralizada
+    const url = `${apiConfig.baseUrl}/recordes`;
+    console.log(`Buscando recordes: ${url}`);
     
     const res = await fetch(url, { 
       method: 'GET',
@@ -44,7 +45,7 @@ export default async function RecordesPage() {
       console.warn('Lista de recordes vazia, tentando método alternativo...');
       try {
         // Tentar novamente com uma abordagem ligeiramente diferente
-        const alternativeUrl = 'http://localhost:3334/recordes';
+        const alternativeUrl = `${apiConfig.baseUrl}/recordes`;
         console.log(`Tentando URL alternativa: ${alternativeUrl}`);
         
         const alternativeRes = await fetch(alternativeUrl, {

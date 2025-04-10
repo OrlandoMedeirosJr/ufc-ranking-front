@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import React from 'react';
+import { apiConfig } from '@/config/api';
 
 interface Lutador {
   id: number;
@@ -37,9 +38,9 @@ export default async function LutadoresPage({
   let erro: string | null = null;
   
   try {
-    // URL direta para a API
-    const url = `http://localhost:3334/lutadores${queryParams}`;
-    console.log(`Buscando lutadores diretamente: ${url}`);
+    // URL usando configuração centralizada
+    const url = `${apiConfig.baseUrl}/lutadores${queryParams}`;
+    console.log(`Buscando lutadores: ${url}`);
     
     const res = await fetch(url, {
       method: 'GET',
@@ -68,8 +69,8 @@ export default async function LutadoresPage({
     // Para cada lutador, buscar as categorias em que já lutou
     for (const lutador of lutadores) {
       try {
-        // URL direta para API de categorias do lutador
-        const categoriaUrl = `http://localhost:3334/lutadores/${lutador.id}/categorias`;
+        // Usar configuração centralizada para URL
+        const categoriaUrl = `${apiConfig.baseUrl}/lutadores/${lutador.id}/categorias`;
         console.log(`Buscando categorias do lutador ${lutador.id}: ${categoriaUrl}`);
         
         const resCategoria = await fetch(categoriaUrl, {
@@ -101,7 +102,7 @@ export default async function LutadoresPage({
     // Tentativa alternativa
     try {
       console.log('Tentando abordagem alternativa para buscar lutadores...');
-      const alternativeUrl = 'http://localhost:3334/lutadores';
+      const alternativeUrl = `${apiConfig.baseUrl}/lutadores`;
       console.log(`URL alternativa: ${alternativeUrl}`);
       
       const alternativeRes = await fetch(alternativeUrl, {
