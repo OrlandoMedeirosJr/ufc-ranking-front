@@ -297,7 +297,8 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       router.push(`/eventos/${eventoId}`);
     } catch (error) {
       console.error('Erro ao salvar evento:', error);
-      setError(`Erro ao salvar o evento: ${error.message}`);
+      // Verificar o tipo de error antes de acessar a propriedade message
+      setError(`Erro ao salvar o evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       setEnviando(false);
     }
   };
@@ -573,7 +574,7 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
         setLoading(false);
       } catch (fallbackError) {
         console.error('Erro também no fallback:', fallbackError);
-        setError(`Erro ao carregar o evento: ${error.message}`);
+        setError(`Erro ao carregar o evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
         setRetryButton(
           <button 
             onClick={() => carregarEvento(id)} 
