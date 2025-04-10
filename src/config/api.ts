@@ -22,6 +22,9 @@ export const apiConfig = {
   mode: 'cors'
 };
 
+// Exporta API_URL para compatibilidade com código existente
+export const API_URL = apiConfig.baseUrl;
+
 // Log no console para facilitar depuração
 console.log('API Config:', {
   baseUrl: apiConfig.baseUrl,
