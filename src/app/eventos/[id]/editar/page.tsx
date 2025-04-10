@@ -194,7 +194,7 @@ function EditarEventoClient({ eventId }: { eventId: string }) {
       tipo: '', 
       round: '1', 
       titulo: false, 
-      bonus: '', 
+      bonus: [], 
       categoria: '' 
     }, ...lutas]);
     
