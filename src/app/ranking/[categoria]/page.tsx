@@ -23,14 +23,17 @@ interface RankingItem {
 export default async function RankingPage({ 
   params 
 }: { 
-  params: { categoria: string } 
+  params: Promise<{ categoria: string }> 
 }) {
+  // Await params já que agora é uma Promise
+  const unwrappedParams = await params;
+  
   // Verificar se temos uma categoria válida
-  if (!params?.categoria) {
+  if (!unwrappedParams?.categoria) {
     return notFound();
   }
   
-  const categoria = decodeURIComponent(params.categoria);
+  const categoria = decodeURIComponent(unwrappedParams.categoria);
   
   // Mapeamento de slugs para nomes de categorias no formato que o backend espera
   const categoriasMap: Record<string, string> = {

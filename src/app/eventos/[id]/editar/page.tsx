@@ -22,11 +22,18 @@ interface Evento {
   payPerView?: number;
 }
 
-export default function EditarEventoPage({ params }: { params: { id: string } }) {
-  // Desempacotar params no nível superior, fora de qualquer bloco try/catch
-  const unwrappedParams = use(params);
+// Modificado para NextJS 15 - params agora é uma Promise
+export default async function EditarEventoPage({ params }: { params: Promise<{ id: string }> }) {
+  // Await params já que agora é uma Promise
+  const unwrappedParams = await params;
   const eventIdFromParams = unwrappedParams.id;
   
+  // Transformamos o componente em cliente após o await dos params
+  return <EditarEventoClient eventId={eventIdFromParams} />;
+}
+
+// Componente cliente que recebe o ID já processado
+function EditarEventoClient({ eventId }: { eventId: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -35,7 +42,7 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
   const [evento, setEvento] = useState<Evento | null>(null);
   const [lutadoresCadastrados, setLutadoresCadastrados] = useState<string[]>([]);
   const [lutadorEmVerificacao, setLutadorEmVerificacao] = useState<{nome: string, index: number, campo: 'lutador1' | 'lutador2'} | null>(null);
-  const [eventoId, setEventoId] = useState<string>(eventIdFromParams || "");
+  const [eventoId, setEventoId] = useState<string>(eventId || "");
   const [retryButton, setRetryButton] = useState<React.ReactNode | null>(null);
   
   // Configurar Modal para acessibilidade após montagem do componente
@@ -124,13 +131,13 @@ export default function EditarEventoPage({ params }: { params: { id: string } })
 
   // Carregar dados do evento e lutas
   useEffect(() => {
-    // Usamos o ID extraído no nível superior do componente
-    if (eventIdFromParams) {
-      setEventoId(eventIdFromParams);
-      carregarEvento(eventIdFromParams);
+    // Usamos o ID passado como prop
+    if (eventId) {
+      setEventoId(eventId);
+      carregarEvento(eventId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [eventId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
