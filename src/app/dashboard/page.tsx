@@ -271,7 +271,7 @@ export default function DashboardPage() {
             console.log('Dados de categorias recebidos da API:', categoriaStats);
             
             // Filtrar para incluir apenas categorias com lutas
-            const categoriasFiltradas = categoriaStats.filter(item => item.count > 0);
+            const categoriasFiltradas = categoriaStats.filter((item: LutasCategoria) => item.count > 0);
             console.log('Categorias filtradas (apenas com lutas):', categoriasFiltradas);
             
             // Se o backend retornar os dados, usamos eles
