@@ -6,22 +6,28 @@ import Link from 'next/link';
 import LutaForm from '@/components/LutaForm';
 
 interface EditarLutaPageProps {
-  params: {
+  params: Promise<{
     id: string;
     lutaId: string;
-  };
+  }>;
 }
 
-export default function EditarLutaPage({ params }: EditarLutaPageProps) {
+export default async function EditarLutaPage({ params }: EditarLutaPageProps) {
+  // Await params já que agora é uma Promise
+  const unwrappedParams = await params;
+  const eventoId = unwrappedParams.id;
+  const lutaId = unwrappedParams.lutaId;
+
+  // Componente cliente que recebe os IDs já processados
+  return <EditarLutaClient eventoId={eventoId} lutaId={lutaId} />;
+}
+
+// Componente cliente que recebe os IDs já processados
+function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: string }) {
   const [eventoData, setEventoData] = React.useState<any>(null);
   const [lutaData, setLutaData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  // Desempacotar os parâmetros usando React.use
-  const unwrappedParams = React.use(params);
-  const eventoId = unwrappedParams.id;
-  const lutaId = unwrappedParams.lutaId;
   
   console.log('Editando luta:', { eventoId, lutaId });
 

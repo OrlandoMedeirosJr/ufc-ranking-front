@@ -67,13 +67,20 @@ interface Evento {
 }
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function EventoDetalhesPage({ params }: PageProps) {
-  // Obter o ID do evento diretamente dos parâmetros
-  const eventoId = params.id;
+export default async function EventoDetalhesPage({ params }: PageProps) {
+  // Await params já que agora é uma Promise
+  const unwrappedParams = await params;
+  const eventoId = unwrappedParams.id;
   
+  // Componente cliente que recebe o ID já processado
+  return <EventoDetalhesClient eventoId={eventoId} />;
+}
+
+// Componente cliente que recebe o ID já processado
+function EventoDetalhesClient({ eventoId }: { eventoId: string }) {
   console.log('ID do evento:', eventoId);
   
   const [evento, setEvento] = useState<Evento | null>(null);
