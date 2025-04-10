@@ -43,11 +43,18 @@ interface FormData {
   resultado?: string;
 }
 
-export default function NovaLutaPage({ params }: { params: { id: string } }) {
-  // Usar React.use para "unwrap" os parâmetros
-  const unwrappedParams = React.use(params);
+// Modificado para NextJS 15 - params agora é uma Promise
+export default async function NovaLutaPage({ params }: { params: Promise<{ id: string }> }) {
+  // Await params já que agora é uma Promise
+  const unwrappedParams = await params;
   const eventoId = unwrappedParams.id;
   
+  // Componente cliente que recebe o ID já processado
+  return <NovaLutaClient eventoId={eventoId} />;
+}
+
+// Componente cliente que recebe o ID já processado
+function NovaLutaClient({ eventoId }: { eventoId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
