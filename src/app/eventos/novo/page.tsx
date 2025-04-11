@@ -57,7 +57,7 @@ export default function NovoEventoPage() {
           } else {
             console.error(`Erro na resposta da API: ${response.status} - ${response.statusText}`);
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Erro ao carregar lutadores:', error);
         }
         
@@ -226,7 +226,7 @@ export default function NovoEventoPage() {
           // Se chegou aqui na última tentativa, o lutador não foi encontrado
           break;
           
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`Erro ao verificar lutador na API (tentativa ${tentativas}):`, error);
           
           // Se não estamos na última tentativa, tentar novamente
@@ -439,7 +439,7 @@ export default function NovoEventoPage() {
               
               console.error(`Nenhum lutador encontrado para ${nome}`);
               return null;
-            } catch (error) {
+            } catch (error: unknown) {
               console.error(`Erro ao buscar lutador ${nome}:`, error);
               return null;
             }
@@ -493,7 +493,7 @@ export default function NovoEventoPage() {
               });
               
               console.log(`Luta processada: ${lutadorA.nome} (ID: ${lutadorA.id}) vs ${lutadorB.nome} (ID: ${lutadorB.id})`);
-            } catch (error) {
+            } catch (error: unknown) {
               console.error('Erro ao processar luta:', error);
               throw error;
             }
@@ -574,21 +574,35 @@ export default function NovoEventoPage() {
             
             console.log('Evento criado e lutas adicionadas com sucesso.');
             router.push('/eventos');
-          } catch (error) {
-            console.error('Erro ao adicionar lutas:', error);
-            throw error;
+          } catch (fetchError: unknown) {
+            console.error('Erro ao adicionar lutas:', fetchError);
+            
+            // Tratar erros específicos de rede
+            if (fetchError && typeof fetchError === 'object' && 'name' in fetchError && fetchError.name === 'AbortError') {
+              throw new Error('A requisição demorou muito tempo para completar. Tente novamente.');
+            } else if (
+              fetchError && 
+              typeof fetchError === 'object' && 
+              'message' in fetchError && 
+              typeof fetchError.message === 'string' && 
+              fetchError.message.includes('Failed to fetch')
+            ) {
+              throw new Error('Erro de conexão. Verifique se o servidor está ativo e tente novamente.');
+            } else {
+              throw fetchError; // Repassar o erro para ser tratado no bloco catch externo
+            }
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Erro ao criar evento:', error);
           throw error;
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Erro ao processar a requisição:', error);
         setError(`Falha ao criar evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setLoading(false);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao processar a requisição:', error);
       setError(`Falha ao criar evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
@@ -742,20 +756,26 @@ export default function NovoEventoPage() {
             throw new Error('Resposta do servidor inválida e dados do formulário insuficientes');
           }
         }
-      } catch (fetchError) {
+      } catch (fetchError: unknown) {
         console.error('Erro durante a requisição:', fetchError);
         
         // Tratar erros específicos de rede
-        if (fetchError.name === 'AbortError') {
+        if (fetchError && typeof fetchError === 'object' && 'name' in fetchError && fetchError.name === 'AbortError') {
           throw new Error('A requisição demorou muito tempo para completar. Tente novamente.');
-        } else if (fetchError.message.includes('Failed to fetch')) {
+        } else if (
+          fetchError && 
+          typeof fetchError === 'object' && 
+          'message' in fetchError && 
+          typeof fetchError.message === 'string' && 
+          fetchError.message.includes('Failed to fetch')
+        ) {
           throw new Error('Erro de conexão. Verifique se o servidor está ativo e tente novamente.');
         } else {
           throw fetchError; // Repassar o erro para ser tratado no bloco catch externo
         }
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao cadastrar lutador:', error);
       setError(`Falha ao cadastrar lutador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
@@ -851,9 +871,9 @@ export default function NovoEventoPage() {
         router.push('/eventos');
         router.refresh();
       }
-    } catch (err) {
-      console.error('Erro no teste:', err);
-      setError(`Erro no teste: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    } catch (error: unknown) {
+      console.error('Erro no teste:', error);
+      setError(`Erro no teste: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
