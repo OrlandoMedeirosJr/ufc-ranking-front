@@ -442,7 +442,7 @@ const LutaForm: React.FC<LutaFormProps> = ({
         {infoCategoria && (
           <div className="bg-blue-100 px-2 py-1 rounded-md text-blue-800 font-medium flex items-center">
             <span className="mr-1 text-sm">#</span>
-            <span>{info.ranking.categoria.posicao}</span>
+            <span>{info.ranking.categoria?.posicao}</span>
             <span className="ml-1 text-xs">{categoria.split(' ')[1]}</span>
           </div>
         )}
