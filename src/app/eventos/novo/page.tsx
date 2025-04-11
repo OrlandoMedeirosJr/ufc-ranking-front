@@ -102,7 +102,7 @@ export default function NovoEventoPage() {
     tipo: '', // Nocaute, Finalização, Decisão Unânime, Decisão Dividida, Desclassificação
     round: '1', // 1 a 5
     titulo: false, // Disputa de título? (Sim/Não)
-    bonus: '', // Performance da Noite, Luta da Noite, Nenhum
+    bonus: [], // Performance da Noite, Luta da Noite, Nenhum
     categoria: '' // Categoria da luta
   }]);
 
@@ -262,7 +262,7 @@ export default function NovoEventoPage() {
       tipo: '', 
       round: '1', 
       titulo: false, 
-      bonus: '', 
+      bonus: [], 
       categoria: '' 
     }, ...lutas]);
     
