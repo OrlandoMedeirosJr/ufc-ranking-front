@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LutaForm from '@/components/LutaForm';
+import { apiConfig, buildApiUrl } from '@/config/api';
 
 interface EditarLutaPageProps {
   params: Promise<{
@@ -38,7 +39,7 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
       setError(null);
       
       console.log('Buscando evento:', eventoId);
-      const eventoResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/eventos/${eventoId}`);
+      const eventoResponse = await fetch(`${apiConfig.baseUrl}/eventos/${eventoId}`);
       
       if (!eventoResponse.ok) {
         throw new Error(`Erro ao buscar evento: ${eventoResponse.status}`);
@@ -97,8 +98,21 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
       setLoading(true);
       setError(null);
       
+      // Definir uma interface para o objeto com assinatura de índice
+      interface DadosLuta {
+        categoria?: any;
+        disputaTitulo?: any;
+        vencedor?: any;
+        metodo?: any;
+        round?: number | undefined;
+        tempo?: any;
+        bonusLuta?: boolean | undefined;
+        bonusPerformance?: boolean | undefined;
+        [key: string]: any; // Permite indexação por string
+      }
+      
       // Preparar dados para envio à API
-      const dadosParaEnviar = {
+      const dadosParaEnviar: DadosLuta = {
         categoria: formData.categoria,
         disputaTitulo: formData.disputaTitulo,
         vencedor: formData.resultado?.vencedor,
@@ -122,7 +136,7 @@ function EditarLutaClient({ eventoId, lutaId }: { eventoId: string; lutaId: stri
       console.log('Dados formatados para API:', dadosParaEnviar);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lutas/${lutaId}`, {
+        const response = await fetch(`${apiConfig.baseUrl}/lutas/${lutaId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
