@@ -160,7 +160,7 @@ const LutaForm: React.FC<LutaFormProps> = ({
     // Se for checkbox, usar checked
     const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     
-    setFormData(prev => ({
+    setFormData((prev: Luta) => ({
       ...prev,
       [name]: newValue
     }));
