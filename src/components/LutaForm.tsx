@@ -171,8 +171,23 @@ const LutaForm: React.FC<LutaFormProps> = ({
     e.preventDefault();
     
     if (onSubmit) {
+      // Interface para o objeto que será enviado à API
+      interface DataToSubmit {
+        lutadorA: any;
+        lutadorB: any;
+        categoria: string;
+        disputaTitulo: boolean;
+        resultado?: {
+          vencedor: string;
+          metodo: string;
+          round?: number;
+          bonusLuta: boolean;
+          bonusPerformance: boolean;
+        };
+      }
+      
       // Converter formData para o formato esperado pela API
-      const dataToSubmit = {
+      const dataToSubmit: DataToSubmit = {
         lutadorA: initialData?.lutadorA || { nome: formData.lutador1 },
         lutadorB: initialData?.lutadorB || { nome: formData.lutador2 },
         categoria: formData.categoria,
